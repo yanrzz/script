@@ -28,236 +28,378 @@ local PetsList = {
     "Bunny", "Frog" , "Owl", "Monkey", "Robin", "Bee", "Bear" ,"Unicorn", "Golden Dragonfly", "Raccoon", "Turtle"
 }
 
--- =============================================================================
--- 2. LOAD UI LIBRARY & WINDOW UTAMA
--- =============================================================================
-local RedzLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/REDZ7710/REDZ4.0/main/redzui", true))()
-
-local Window = RedzLib:MakeWindow({
-    Title = "Speed Hub X | Version 5.1.4",
-    SubTitle = "discord.gg/speedhubx",
-    FontFace = Enum.Font.SourceSansBold
-})
+-- Global Configurations
+_G.TeleportMode = "Tween Teleport"
+_G.BaseTweenSpeed = 1.5
 
 -- =============================================================================
--- 3. PEMBUATAN TAB SIDEBAR (PERBAIKAN STRUKTUR ARGUMEN)
+-- 2. CUSTOM UI ENGINE (BUATAN SENDIRI - ANTI NOT FOUND)
 -- =============================================================================
-local HomeTab          = Window:MakeTab({Name = "Home", Icon = "rbxassetid://4483345998"})
-local MainTab          = Window:MakeTab({Name = "Main", Icon = "rbxassetid://4483345998"})
-local AutomaticallyTab = Window:MakeTab({Name = "Automatically", Icon = "rbxassetid://4483345998"})
-local InventoryTab     = Window:MakeTab({Name = "Inventory", Icon = "rbxassetid://4483345998"})
-local ShopTab          = Window:MakeTab({Name = "Shop", Icon = "rbxassetid://4483345998"})
-local WebhookTab       = Window:MakeTab({Name = "Webhook", Icon = "rbxassetid://4483345998"})
-local MiscTab          = Window:MakeTab({Name = "Misc", Icon = "rbxassetid://4483345998"})
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "SpeedHubX_CustomUI"
+ScreenGui.ResetOnSpawn = false
+-- Menghindari error jika dijalankan di lingkungan non-player executor
+pcall(function() ScreenGui.Parent = game:GetService("CoreInterface") end)
+if not ScreenGui.Parent then
+    pcall(function() ScreenGui.Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui") end)
+end
+
+-- Main Frame
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 550, 0, 380)
+MainFrame.Position = UDim2.new(0.5, -275, 0.5, -190)
+MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true -- Bisa digeser-geser di layar
+MainFrame.Parent = ScreenGui
+
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 8)
+UICorner.Parent = MainFrame
+
+-- Top Bar (Header)
+local TopBar = Instance.new("Frame")
+TopBar.Name = "TopBar"
+TopBar.Size = UDim2.new(1, 0, 0, 40)
+TopBar.BackgroundColor3 = Color3.fromRGB(30, 30, 38)
+TopBar.BorderSizePixel = 0
+TopBar.Parent = MainFrame
+
+local TopCorner = Instance.new("UICorner")
+TopCorner.CornerRadius = UDim.new(0, 8)
+TopCorner.Parent = TopBar
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(0, 300, 1, 0)
+Title.Position = UDim2.new(0, 15, 0, 0)
+Title.Text = "Speed Hub X | Version 5.1.4"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextSize = 16
+Title.Font = Enum.Font.SourceSansBold
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.BackgroundTransparency = 1
+Title.Parent = TopBar
+
+-- Close Button
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 30, 0, 30)
+CloseBtn.Position = UDim2.new(1, -35, 0, 5)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+CloseBtn.Text = "X"
+CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseBtn.TextSize = 14
+CloseBtn.Font = Enum.Font.SourceSansBold
+CloseBtn.Parent = TopBar
+Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
+CloseBtn.MouseButton1Click:Connect(function()
+    ScreenGui:Destroy()
+end)
+
+-- Sidebar Container (Kiri)
+local Sidebar = Instance.new("ScrollingFrame")
+Sidebar.Size = UDim2.new(0, 140, 1, -40)
+Sidebar.Position = UDim2.new(0, 0, 0, 40)
+Sidebar.BackgroundColor3 = Color3.fromRGB(25, 25, 32)
+Sidebar.BorderSizePixel = 0
+Sidebar.CanvasSize = UDim2.new(0, 0, 0, 400)
+Sidebar.ScrollBarThickness = 2
+Sidebar.Parent = MainFrame
+
+local SidebarLayout = Instance.new("UIListLayout")
+SidebarLayout.Padding = UDim.new(0, 4)
+SidebarLayout.Parent = Sidebar
+
+-- Container Halaman (Kanan)
+local PageContainer = Instance.new("Frame")
+PageContainer.Size = UDim2.new(1, -140, 1, -40)
+PageContainer.Position = UDim2.new(0, 140, 0, 40)
+PageContainer.BackgroundTransparency = 1
+PageContainer.Parent = MainFrame
+
+-- Engine Pembuat Komponen UI Secara Dinamis
+local pages = {}
+local activePage = nil
+
+local function CreatePage(pageName)
+    local Page = Instance.new("ScrollingFrame")
+    Page.Size = UDim2.new(1, 0, 1, 0)
+    Page.BackgroundTransparency = 1
+    Page.BorderSizePixel = 0
+    Page.Visible = false
+    Page.CanvasSize = UDim2.new(0, 0, 0, 2500) -- Ukuran memanjang ke bawah otomatis
+    Page.ScrollBarThickness = 4
+    Page.Parent = PageContainer
+    
+    local ListLayout = Instance.new("UIListLayout")
+    ListLayout.Padding = UDim.new(0, 6)
+    ListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    ListLayout.Parent = Page
+    
+    local Padding = Instance.new("UIPadding")
+    Padding.PaddingTop = UDim.new(0, 10)
+    Padding.Parent = Page
+
+    -- Tombol di Sidebar
+    local TabBtn = Instance.new("TextButton")
+    TabBtn.Size = UDim2.new(1, -10, 0, 35)
+    TabBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+    TabBtn.Text = pageName
+    TabBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+    TabBtn.TextSize = 14
+    TabBtn.Font = Enum.Font.SourceSans
+    TabBtn.Parent = Sidebar
+    Instance.new("UICorner", TabBtn).CornerRadius = UDim.new(0, 4)
+    
+    TabBtn.MouseButton1Click:Connect(function()
+        for _, p in pairs(pages) do p.Visible = false end
+        Page.Visible = true
+    end)
+    
+    pages[pageName] = Page
+    return Page
+end
+
+-- Generator Objek di Dalam Halaman
+local UI = {}
+
+function UI:AddLabel(page, text)
+    local Label = Instance.new("TextLabel")
+    Label.Size = UDim2.new(0, 380, 0, 25)
+    Label.BackgroundTransparency = 1
+    Label.Text = text
+    Label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Label.Font = Enum.Font.SourceSansBold
+    Label.TextSize = 14
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.Parent = pages[page]
+end
+
+function UI:AddSection(page, text)
+    local Frame = Instance.new("Frame")
+    Frame.Size = UDim2.new(0, 380, 0, 30)
+    Frame.BackgroundColor3 = Color3.fromRGB(40, 60, 120)
+    Frame.BorderSizePixel = 0
+    Frame.Parent = pages[page]
+    Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 4)
+    
+    local Label = Instance.new("TextLabel")
+    Label.Size = UDim2.new(1, -10, 1, 0)
+    Label.Position = UDim2.new(0, 10, 0, 0)
+    Label.BackgroundTransparency = 1
+    Label.Text = text
+    Label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Label.Font = Enum.Font.SourceSansBold
+    Label.TextSize = 14
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.Parent = Frame
+end
+
+function UI:AddToggle(page, text, default, callback)
+    local Frame = Instance.new("Frame")
+    Frame.Size = UDim2.new(0, 380, 0, 35)
+    Frame.BackgroundColor3 = Color3.fromRGB(30, 30, 38)
+    Frame.Parent = pages[page]
+    Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 4)
+    
+    local Label = Instance.new("TextLabel")
+    Label.Size = UDim2.new(0, 280, 1, 0)
+    Label.Position = UDim2.new(0, 10, 0, 0)
+    Label.BackgroundTransparency = 1
+    Label.Text = text
+    Label.TextColor3 = Color3.fromRGB(220, 220, 220)
+    Label.Font = Enum.Font.SourceSans
+    Label.TextSize = 14
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.Parent = Frame
+    
+    local TglBtn = Instance.new("TextButton")
+    TglBtn.Size = UDim2.new(0, 50, 0, 22)
+    TglBtn.Position = UDim2.new(1, -60, 0.5, -11)
+    TglBtn.BackgroundColor3 = default and Color3.fromRGB(50, 180, 50) or Color3.fromRGB(70, 70, 80)
+    TglBtn.Text = default and "ON" or "OFF"
+    TglBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    TglBtn.Font = Enum.Font.SourceSansBold
+    TglBtn.TextSize = 12
+    TglBtn.Parent = Frame
+    Instance.new("UICorner", TglBtn).CornerRadius = UDim.new(0, 4)
+    
+    local state = default
+    TglBtn.MouseButton1Click:Connect(function()
+        state = not state
+        TglBtn.BackgroundColor3 = state and Color3.fromRGB(50, 180, 50) or Color3.fromRGB(70, 70, 80)
+        TglBtn.Text = state and "ON" or "OFF"
+        callback(state)
+    end)
+end
+
+function UI:AddDropdown(page, text, options, callback)
+    local Frame = Instance.new("Frame")
+    Frame.Size = UDim2.new(0, 380, 0, 35)
+    Frame.BackgroundColor3 = Color3.fromRGB(30, 30, 38)
+    Frame.Parent = pages[page]
+    Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 4)
+    
+    local Label = Instance.new("TextLabel")
+    Label.Size = UDim2.new(0, 180, 1, 0)
+    Label.Position = UDim2.new(0, 10, 0, 0)
+    Label.BackgroundTransparency = 1
+    Label.Text = text
+    Label.TextColor3 = Color3.fromRGB(220, 220, 220)
+    Label.Font = Enum.Font.SourceSans
+    Label.TextSize = 14
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.Parent = Frame
+    
+    local RealBtn = Instance.new("TextBox")
+    RealBtn.Size = UDim2.new(0, 170, 0, 25)
+    RealBtn.Position = UDim2.new(1, -180, 0.5, -12)
+    RealBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+    RealBtn.Text = options[1] or "Click to type/select"
+    RealBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    RealBtn.Font = Enum.Font.SourceSans
+    RealBtn.TextSize = 13
+    RealBtn.Parent = Frame
+    Instance.new("UICorner", RealBtn).CornerRadius = UDim.new(0, 4)
+    
+    RealBtn.FocusLost:Connect(function()
+        callback(RealBtn.Text)
+    end)
+end
+
+function UI:AddTextBox(page, text, placeholder, callback)
+    local Frame = Instance.new("Frame")
+    Frame.Size = UDim2.new(0, 380, 0, 35)
+    Frame.BackgroundColor3 = Color3.fromRGB(30, 30, 38)
+    Frame.Parent = pages[page]
+    Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 4)
+    
+    local Label = Instance.new("TextLabel")
+    Label.Size = UDim2.new(0, 180, 1, 0)
+    Label.Position = UDim2.new(0, 10, 0, 0)
+    Label.BackgroundTransparency = 1
+    Label.Text = text
+    Label.TextColor3 = Color3.fromRGB(220, 220, 220)
+    Label.Font = Enum.Font.SourceSans
+    Label.TextSize = 14
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.Parent = Frame
+    
+    local Box = Instance.new("TextBox")
+    Box.Size = UDim2.new(0, 170, 0, 25)
+    Box.Position = UDim2.new(1, -180, 0.5, -12)
+    Box.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+    Box.Text = ""
+    Box.PlaceholderText = placeholder
+    Box.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Box.Font = Enum.Font.SourceSans
+    Box.TextSize = 13
+    Box.Parent = Frame
+    Instance.new("UICorner", Box).CornerRadius = UDim.new(0, 4)
+    
+    Box.FocusLost:Connect(function()
+        callback(Box.Text)
+    end)
+end
+
+function UI:AddButton(page, text, callback)
+    local Btn = Instance.new("TextButton")
+    Btn.Size = UDim2.new(0, 380, 0, 32)
+    Btn.BackgroundColor3 = Color3.fromRGB(50, 80, 160)
+    Btn.Text = text
+    Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Btn.Font = Enum.Font.SourceSansBold
+    Btn.TextSize = 14
+    Btn.Parent = pages[page]
+    Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 4)
+    Btn.MouseButton1Click:Connect(callback)
+end
 
 -- =============================================================================
--- 4. ISI KONTEN: HOME TAB
+-- 3. ALOKASI KONTEN KE STRUKTUR HALAMAN
 -- =============================================================================
-HomeTab:AddLabel("Home")
+CreatePage("Home")
+CreatePage("Main")
+CreatePage("Automatically")
+CreatePage("Inventory")
+CreatePage("Shop")
+CreatePage("Webhook")
+CreatePage("Misc")
 
--- Discord Section
-HomeTab:AddSection({"Discord"})
-HomeTab:AddButton({
-    Name = "Discord Invite",
-    Callback = function()
-        setclipboard("https://discord.gg/speedhubx")
-        RedzLib:SetNotification({
-            Title = "Speed Hub X",
-            Description = "Discord link copied to clipboard!",
-            Time = 3
-        })
+-- Menampilkan halaman default
+pages["Home"].Visible = true
+
+-- -----------------------------------------------------------------------------
+-- ISI TAB: HOME
+-- -----------------------------------------------------------------------------
+UI:AddLabel("Home", "Welcome to Speed Hub X Custom Engine")
+UI:AddSection("Home", "Discord")
+UI:AddButton("Home", "Discord Invite", function()
+    setclipboard("https://discord.gg/speedhubx")
+end)
+
+UI:AddSection("Home", "LocalPlayer")
+UI:AddTextBox("Home", "Set Speed", "Write speed number...", function(v)
+    local num = tonumber(v)
+    if num and game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("Humanoid") then
+        game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = num
     end
-})
+end)
+UI:AddToggle("Home", "Enable Walkspeed", false, function(v) _G.WalkspeedToggle = v end)
+UI:AddToggle("Home", "No Clip", false, function(v) _G.NoClipToggle = v end)
 
--- LocalPlayer Section
-HomeTab:AddSection({"LocalPlayer"})
-HomeTab:AddTextBox({
-    Name = "Set Speed",
-    Default = "",
-    PlaceholderText = "Write your input there",
-    Callback = function(Value)
-        local num = tonumber(Value)
-        if num and game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("Humanoid") then
-            game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = num
-        end
-    end
-})
+-- -----------------------------------------------------------------------------
+-- ISI TAB: MAIN
+-- -----------------------------------------------------------------------------
+UI:AddSection("Main", "Teleport Manager")
+UI:AddDropdown("Main", "Select Mode", {"Tween Teleport", "Instant Teleport"}, function(v) _G.TeleportMode = v end)
+UI:AddTextBox("Main", "Base Tween Speed", "1.5", function(v) _G.BaseTweenSpeed = tonumber(v) or 1.5 end)
 
-HomeTab:AddToggle({
-    Name = "Enable Walkspeed",
-    Default = false,
-    Callback = function(Value)
-        _G.WalkspeedToggle = Value
-        task.spawn(function()
-            while _G.WalkspeedToggle do
-                task.wait()
-                pcall(function()
-                    if game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("Humanoid") then
-                        game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = 50 
-                    end
-                end)
-            end
-        end)
-    end
-})
+UI:AddSection("Main", "Stack Farm Manager")
+UI:AddToggle("Main", "Enable Stack Farming", false, function(v) _G.EnableStackFarming = v end)
 
-HomeTab:AddToggle({
-    Name = "No Clip",
-    Default = false,
-    Callback = function(Value)
-        _G.NoClipToggle = Value
-        task.spawn(function()
-            while _G.NoClipToggle do
-                task.wait()
-                pcall(function()
-                    if game.Players.LocalPlayer.Character then
-                        for _, part in pairs(game.Players.LocalPlayer.Character:GetChildren()) do
-                            if part:IsA("BasePart") then
-                                part.CanCollide = not _G.NoClipToggle
-                            end
-                        end
-                    end
-                end)
-            end
-        end)
-    end
-})
+UI:AddSection("Main", "Automation Plants")
+UI:AddToggle("Main", "Disable Teleport", false, function(v) _G.DisableTeleportPlants = v v end)
+UI:AddDropdown("Main", "Select Seeds", FruitsList, function(v) _G.SelectedSeed = v end)
+UI:AddDropdown("Main", "Select Position", {"Player Position", "Sprinkler Radius"}, function(v) _G.SelectPosition = v end)
+UI:AddDropdown("Main", "Select Sprinkler", GearsList, function(v) _G.SelectedSprinkler = v end)
+UI:AddToggle("Main", "Auto Plants Seed", false, function(v) _G.AutoPlantsSeed = v end)
+UI:AddToggle("Main", "Auto Plants All Seeds", false, function(v) _G.AutoPlantsAllSeeds = v end)
 
+UI:AddSection("Main", "Automation Collection")
+UI:AddToggle("Main", "Disable Teleport", false, function(v) _G.DisableTeleportCollection = v end)
+UI:AddToggle("Main", "Stop Collect If Backpack Full", false, function(v) _G.StopCollectIfFull = v end)
+UI:AddDropdown("Main", "Select Fruit Filter", FruitsList, function(v) _G.CollectSelectedFruit = v end)
+UI:AddDropdown("Main", "Select Rarity Filter", RarityList, function(v) _G.CollectSelectedRarity = v end)
+UI:AddDropdown("Main", "Select Mutation Filter", MutationList, function(v) _G.CollectSelectedMutation = v end)
+UI:AddToggle("Main", "Auto Collect Fruit", false, function(v) _G.AutoCollectFruit = v end)
+UI:AddToggle("Main", "Auto Collect All Fruit", false, function(v) _G.AutoCollectAllFruit = v end)
+UI:AddToggle("Main", "Auto Collect Gold Seed", false, function(v) _G.AutoCollectGoldSeed = v end)
+UI:AddToggle("Main", "Auto Collect Rainbow Seed", false, function(v) _G.AutoCollectRainbowSeed = v end)
+UI:AddToggle("Main", "Auto Collect Mega Seed", false, function(v) _G.AutoCollectMegaSeed = v end)
 
--- =============================================================================
--- 5. ISI KONTEN: MAIN TAB
--- =============================================================================
-MainTab:AddLabel("Main")
+UI:AddSection("Main", "Automation Steal")
+UI:AddDropdown("Main", "Select Steal Fruit", FruitsList, function(v) _G.StealSelectedFruit = v end)
+UI:AddToggle("Main", "Auto Steal Fruit", false, function(v) _G.AutoStealFruit = v end)
+UI:AddToggle("Main", "Auto Steal Best Fruit", false, function(v) _G.AutoStealBestFruit = v end)
+UI:AddToggle("Main", "Auto Lock Garden At Night", false, function(v) _G.AutoLockGarden = v end)
 
--- [ SECTION 1 ]: TELEPORT MANAGER
-MainTab:AddSection({"Teleport Manager"})
-MainTab:AddDropdown({
-    Name = "Select Mode",
-    Options = {"Tween Teleport", "Instant Teleport"},
-    Default = "Tween Teleport",
-    Callback = function(Value) _G.TeleportMode = Value end
-})
-MainTab:AddTextBox({
-    Name = "Base Tween Speed",
-    Default = "1.5",
-    PlaceholderText = "e.g. 1.5",
-    Callback = function(Value) _G.BaseTweenSpeed = tonumber(Value) or 1.5 end
-})
+UI:AddSection("Main", "Automation Sell")
+UI:AddToggle("Main", "Auto Sell All", false, function(v) _G.AutoSellAll = v end)
+UI:AddDropdown("Main", "Select Sell Fruit", FruitsList, function(v) _G.SellSelectedFruit = v end)
+UI:AddToggle("Main", "Auto Sell Fruit", false, function(v) _G.AutoSellFruit = v end)
+UI:AddDropdown("Main", "Select Sell Pet", PetsList, function(v) _G.SellSelectedPet = v end)
+UI:AddToggle("Main", "Auto Sell Pets", false, function(v) _G.AutoSellPets = v end)
 
--- [ SECTION 2 ]: STACK FARM MANAGER
-MainTab:AddSection({"Stack Farm Manager"})
-MainTab:AddLabel("- [ Priority Selection ] -")
-MainTab:AddDropdown({ Name = "Priority Auto Plants Seed", Options = {"1", "2", "3", "None"}, Default = "None", Callback = function(v) _G.PriorityPlantSeed = v end })
-MainTab:AddDropdown({ Name = "Priority Auto Plants All Seeds", Options = {"1", "2", "3", "None"}, Default = "None", Callback = function(v) _G.PriorityPlantAll = v end })
-MainTab:AddDropdown({ Name = "Priority Auto Collect Fruit", Options = {"1", "2", "3", "None"}, Default = "None", Callback = function(v) _G.PriorityCollectFruit = v end })
-MainTab:AddDropdown({ Name = "Priority Auto Collect All Fruit", Options = {"1", "2", "3", "None"}, Default = "None", Callback = function(v) _G.PriorityCollectAll = v end })
-MainTab:AddDropdown({ Name = "Priority Auto Collect Best Fruit", Options = {"1", "2", "3", "None"}, Default = "None", Callback = function(v) _G.PriorityCollectBest = v end })
-MainTab:AddDropdown({ Name = "Priority Auto Collect Gold Seed", Options = {"1", "2", "3", "None"}, Default = "None", Callback = function(v) _G.PriorityGoldSeed = v end })
-MainTab:AddDropdown({ Name = "Priority Auto Collect Rainbow Seed", Options = {"1", "2", "3", "None"}, Default = "None", Callback = function(v) _G.PriorityRainbowSeed = v end })
-MainTab:AddDropdown({ Name = "Priority Auto Collect Mega Seed", Options = {"1", "2", "3", "None"}, Default = "None", Callback = function(v) _G.PriorityMegaSeed = v end })
-MainTab:AddDropdown({ Name = "Priority Auto Steal Fruit", Options = {"1", "2", "3", "None"}, Default = "None", Callback = function(v) _G.PrioritySteal = v end })
-MainTab:AddDropdown({ Name = "Priority Auto Steal Best Fruit", Options = {"1", "2", "3", "None"}, Default = "None", Callback = function(v) _G.PriorityStealBest = v end })
-MainTab:AddDropdown({ Name = "Priority Auto Lock Garden At Night", Options = {"1", "2", "3", "None"}, Default = "None", Callback = function(v) _G.PriorityLockGarden = v end })
-MainTab:AddDropdown({ Name = "Priority Auto Buy Pet", Options = {"1", "2", "3", "None"}, Default = "None", Callback = function(v) _G.PriorityBuyPet = v end })
-MainTab:AddDropdown({ Name = "Priority Auto Place Sprinkler", Options = {"1", "2", "3", "None"}, Default = "None", Callback = function(v) _G.PrioritySprinkler = v end })
-MainTab:AddDropdown({ Name = "Priority Auto Place All Sprinkler", Options = {"1", "2", "3", "None"}, Default = "None", Callback = function(v) _G.PriorityAllSprinkler = v end })
-MainTab:AddDropdown({ Name = "Priority Auto Collect Dropped Item", Options = {"1", "2", "3", "None"}, Default = "None", Callback = function(v) _G.PriorityDropped = v end })
-MainTab:AddDropdown({ Name = "Priority Auto Hit Player Stolen", Options = {"1", "2", "3", "None"}, Default = "None", Callback = function(v) _G.PriorityHitStolen = v end })
+UI:AddSection("Main", "Automation Pets")
+UI:AddToggle("Main", "Pet Purchase Protection", false, function(v) _G.PetPurchaseProtection = v end)
+UI:AddDropdown("Main", "Select Buy Pet", PetsList, function(v) _G.BuySelectedPet = v end)
+UI:AddToggle("Main", "Auto Buy Pet", false, function(v) _G.AutoBuyPet = v end)
 
-MainTab:AddLabel("- [ Stack Manager ] -")
-MainTab:AddToggle({
-    Name = "Enable Stack Farming",
-    Default = false,
-    Callback = function(Value) _G.EnableStackFarming = Value end
-})
-
--- [ SECTION 3 ]: AUTOMATION PLANTS
-MainTab:AddSection({"Automation Plants"})
-MainTab:AddLabel("- [ Config ] -")
-MainTab:AddToggle({ Name = "Disable Teleport", Default = false, Callback = function(v) _G.DisableTeleportPlants = v end })
-MainTab:AddLabel("- [ Plants ] -")
-MainTab:AddDropdown({ Name = "Select Seeds", Options = FruitsList, Default = "", Callback = function(v) _G.SelectedSeed = v end })
-MainTab:AddDropdown({ Name = "Select Position", Options = {"Player Position", "Sprinkler Radius", "Custom Coordinate"}, Default = "Player Position", Callback = function(v) _G.SelectPosition = v end })
-MainTab:AddDropdown({ Name = "Select Sprinkler For Plants", Options = GearsList, Default = "", Callback = function(v) _G.SelectedSprinkler = v end })
-MainTab:AddButton({ Name = "Save Position", Callback = function() print("Position Saved!") end })
-MainTab:AddTextBox({ Name = "Delay To Plants", Default = "0", PlaceholderText = "0", Callback = function(v) _G.DelayToPlants = tonumber(v) or 0 end })
-MainTab:AddToggle({ Name = "Auto Plants Seed", Default = false, Callback = function(v) _G.AutoPlantsSeed = v end })
-MainTab:AddToggle({ Name = "Auto Plants All Seeds", Default = false, Callback = function(v) _G.AutoPlantsAllSeeds = v end })
-
--- [ SECTION 4 ]: AUTOMATION COLLECTION
-MainTab:AddSection({"Automation Collection"})
-MainTab:AddLabel("- [ Config ] -")
-MainTab:AddToggle({ Name = "Disable Teleport", Default = false, Callback = function(v) _G.DisableTeleportCollection = v end })
-MainTab:AddToggle({ Name = "Stop Collect If Backpack Is Full Max", Default = false, Callback = function(v) _G.StopCollectIfFull = v end })
-MainTab:AddTextBox({ Name = "Delay To Collect", Default = "0", PlaceholderText = "0", Callback = function(v) _G.DelayToCollect = tonumber(v) or 0 end })
-MainTab:AddToggle({ Name = "Disable Collect Prompt", Default = false, Callback = function(v) _G.DisableCollectPrompt = v end })
-MainTab:AddLabel("- [ Collects ] -")
-MainTab:AddDropdown({ Name = "Select Filter", Options = {"Whitelist", "Blacklist"}, Default = "Whitelist", Callback = function(v) _G.CollectFilter = v end })
-MainTab:AddDropdown({ Name = "Select Fruit", Options = FruitsList, Default = "", Callback = function(v) _G.CollectSelectedFruit = v end })
-MainTab:AddDropdown({ Name = "Select Rarity", Options = RarityList, Default = "", Callback = function(v) _G.CollectSelectedRarity = v end })
-MainTab:AddDropdown({ Name = "Select Mutation", Options = MutationList, Default = "", Callback = function(v) _G.CollectSelectedMutation = v end })
-MainTab:AddDropdown({ Name = "Select Threshold Mode", Options = {"Below", "Above"}, Default = "Below", Callback = function(v) _G.CollectThresholdMode = v end })
-MainTab:AddTextBox({ Name = "Weight Threshold", Default = "100", PlaceholderText = "100", Callback = function(v) _G.CollectWeightThreshold = tonumber(v) or 100 end })
-MainTab:AddToggle({ Name = "Only Mutated Fruit", Default = false, Callback = function(v) _G.OnlyMutatedFruit = v end })
-MainTab:AddToggle({ Name = "Auto Collect Fruit", Default = false, Callback = function(v) _G.AutoCollectFruit = v end })
-MainTab:AddToggle({ Name = "Auto Collect All Fruit", Default = false, Callback = function(v) _G.AutoCollectAllFruit = v end })
-MainTab:AddToggle({ Name = "Enable Filters", Default = false, Callback = function(v) _G.EnableCollectionFilters = v end })
-MainTab:AddToggle({ Name = "Auto Collect Best Fruit", Default = false, Callback = function(v) _G.AutoCollectBestFruit = v end })
-MainTab:AddLabel("- [ Collect Event Seed ] -")
-MainTab:AddToggle({ Name = "Auto Collect Gold Seed", Default = false, Callback = function(v) _G.AutoCollectGoldSeed = v end })
-MainTab:AddToggle({ Name = "Auto Collect Rainbow Seed", Default = false, Callback = function(v) _G.AutoCollectRainbowSeed = v end })
-MainTab:AddToggle({ Name = "Auto Collect Mega Seed", Default = false, Callback = function(v) _G.AutoCollectMegaSeed = v end })
-MainTab:AddLabel("- [ Collect Dropped Item ] -")
-MainTab:AddToggle({ Name = "Auto Collect Dropped Item", Default = false, Callback = function(v) _G.AutoCollectDroppedItem = v end })
-
--- [ SECTION 5 ]: AUTOMATION STEAL
-MainTab:AddSection({"Automation Steal"})
-MainTab:AddLabel("- [ Steal Fruits ] -")
-MainTab:AddDropdown({ Name = "Select Filter", Options = {"Whitelist", "Blacklist"}, Default = "Whitelist", Callback = function(v) _G.StealFilter = v end })
-MainTab:AddDropdown({ Name = "Select Fruit", Options = FruitsList, Default = "", Callback = function(v) _G.StealSelectedFruit = v end })
-MainTab:AddDropdown({ Name = "Select Rarity", Options = RarityList, Default = "", Callback = function(v) _G.StealSelectedRarity = v end })
-MainTab:AddDropdown({ Name = "Select Mutation", Options = MutationList, Default = "", Callback = function(v) _G.StealSelectedMutation = v end })
-MainTab:AddToggle({ Name = "Auto Steal Fruit", Default = false, Callback = function(v) _G.AutoStealFruit = v end })
-MainTab:AddLabel("- [ Steal Best Fruit ] -")
-MainTab:AddToggle({ Name = "Auto Steal Best Fruit", Default = false, Callback = function(v) _G.AutoStealBestFruit = v end })
-MainTab:AddLabel("- [ Locks Garden ] -")
-MainTab:AddToggle({ Name = "Auto Lock Garden At Night", Default = false, Callback = function(v) _G.AutoLockGarden = v end })
-MainTab:AddLabel("- [ Hit Players ] -")
-MainTab:AddToggle({ Name = "Auto Hit Player Stolen", Default = false, Callback = function(v) _G.AutoHitStolen = v end })
-
--- [ SECTION 6 ]: AUTOMATION SELL
-MainTab:AddSection({"Automation Sell"})
-MainTab:AddLabel("- [ Sell All ] -")
-MainTab:AddToggle({ Name = "Auto Sell All", Default = false, Callback = function(v) _G.AutoSellAll = v end })
-MainTab:AddButton({ Name = "Sell All", Callback = function() print("Selling everything!") end })
-MainTab:AddLabel("- [ Sell Fruits ] -")
-MainTab:AddDropdown({ Name = "Select Sell Fruit", Options = FruitsList, Default = "", Callback = function(v) _G.SellSelectedFruit = v end })
-MainTab:AddDropdown({ Name = "Select Sell Rarity", Options = RarityList, Default = "", Callback = function(v) _G.SellSelectedRarity = v end })
-MainTab:AddDropdown({ Name = "Select Sell Mutation", Options = MutationList, Default = "", Callback = function(v) _G.SellSelectedMutation = v end })
-MainTab:AddDropdown({ Name = "Select Threshold Mode", Options = {"Below", "Above"}, Default = "Below", Callback = function(v) _G.SellThresholdMode = v end })
-MainTab:AddTextBox({ Name = "Weight Threshold", Default = "100", PlaceholderText = "100", Callback = function(v) _G.SellWeightThreshold = tonumber(v) or 100 end })
-MainTab:AddToggle({ Name = "Auto Sell Fruit", Default = false, Callback = function(v) _G.AutoSellFruit = v end })
-MainTab:AddLabel("- [ Sell Pets ] -")
-MainTab:AddDropdown({ Name = "Select Pets", Options = PetsList, Default = "", Callback = function(v) _G.SellSelectedPet = v end })
-MainTab:AddDropdown({ Name = "Select Rarity Pets", Options = RarityList, Default = "", Callback = function(v) _G.SellSelectedPetRarity = v end })
-MainTab:AddDropdown({ Name = "Select Size Pets", Options = {"Small", "Medium", "Large", "Huge"}, Default = "Small", Callback = function(v) _G.SellSelectedPetSize = v end })
-MainTab:AddToggle({ Name = "Auto Sell Pets", Default = false, Callback = function(v) _G.AutoSellPets = v end })
-
--- [ SECTION 7 ]: AUTOMATION PETS
-MainTab:AddSection({"Automation Pets"})
-MainTab:AddToggle({ Name = "Pet Purchase Protection", Default = false, Callback = function(v) _G.PetPurchaseProtection = v end })
-MainTab:AddLabel("- [ Buys Pets ] -")
-MainTab:AddDropdown({ Name = "Select Pets", Options = PetsList, Default = "", Callback = function(v) _G.BuySelectedPet = v end })
-MainTab:AddDropdown({ Name = "Select Rarity Pets", Options = RarityList, Default = "", Callback = function(v) _G.BuySelectedPetRarity = v end })
-MainTab:AddDropdown({ Name = "Select Size Pets", Options = {"Small", "Medium", "Large", "Huge"}, Default = "Small", Callback = function(v) _G.BuySelectedPetSize = v end })
-MainTab:AddTextBox({ Name = "Pet Sheckle Limit", Default = "0", PlaceholderText = "0", Callback = function(v) _G.PetSheckleLimit = tonumber(v) or 0 end })
-MainTab:AddToggle({ Name = "Auto Buy Pet", Default = false, Callback = function(v) _G.AutoBuyPet = v end })
-
--- =============================================================================
--- 6. PLACEHOLDER UNTUK TAB LAINNYA
--- =============================================================================
-AutomaticallyTab:AddLabel("Fitur Auto Farm GAG 2 akan ditaruh di sini.")
-InventoryTab:AddLabel("Fitur Inventory ditaruh di sini.")
-ShopTab:AddLabel("Fitur Shop ditaruh di sini.")
-WebhookTab:AddLabel("Fitur Webhook ditaruh di sini.")
-MiscTab:AddLabel("Fitur Misc ditaruh di sini.")
+-- TAB LAINNYA
+UI:AddLabel("Automatically", "Fitur Auto Farm GAG 2 akan ditaruh di sini.")
+UI:AddLabel("Inventory", "Fitur Inventory ditaruh di sini.")
+UI:AddLabel("Shop", "Fitur Shop ditaruh di sini.")
+UI:AddLabel("Webhook", "Fitur Webhook ditaruh di sini.")
+UI:AddLabel("Misc", "Fitur Misc ditaruh di sini.")
