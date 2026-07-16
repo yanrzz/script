@@ -5,13 +5,19 @@ local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local CoreGui = game:GetService("CoreGui")
 
+-- Hapus UI lama jika script dijalankan ulang agar tidak menumpuk
+if CoreGui:FindFirstChild("GAG2_AdvancedFarm") then
+    CoreGui:FindFirstChild("GAG2_AdvancedFarm"):Destroy()
+end
+
 -- Status Fitur (Default: MATI)
 _G.AutoHarvest = false
 _G.AutoWater = false
 _G.AutoBuySeed = false
 _G.AutoBuyGear = false
+_G.ScriptRunning = true -- Menandakan script utama sedang berjalan
 
--- Batasan Kondisi (Bisa Anda sesuaikan nilainya di sini)
+-- Batasan Kondisi
 local LIMIT_FRUIT_WEIGHT = 80 -- Panen hanya jika berat buah di bawah 80 Kg
 local LIMIT_MONEY_BUY = 80000000 -- Beli hanya jika uang di atas 80M (80.000.000)
 
@@ -23,6 +29,7 @@ ScreenGui.Name = "GAG2_AdvancedFarm"
 ScreenGui.Parent = CoreGui
 ScreenGui.ResetOnSpawn = false
 
+-- Main Frame (Panel Menu Utama)
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
 MainFrame.Parent = ScreenGui
@@ -40,14 +47,74 @@ MainCorner.Parent = MainFrame
 local Title = Instance.new("TextLabel")
 Title.Name = "Title"
 Title.Parent = MainFrame
-Title.Size = UDim2.new(1, 0, 0, 40)
+Title.Size = UDim2.new(1, -60, 0, 40)
+Title.Position = UDim2.new(0, 10, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "GAG 2 ADVANCED PRO"
+Title.Text = "GAG 2 ADVANCED"
 Title.TextColor3 = Color3.fromRGB(255, 215, 0) -- Warna Emas
-Title.TextSize = 16
+Title.TextSize = 15
 Title.Font = Enum.Font.SourceSansBold
+Title.TextXAlignment = Enum.TextXAlignment.Left
 
--- Fungsi Pembantu untuk Membuat Tombol Toggle
+-- ------------------------------------------
+-- FITUR TOMBOL CLOSE & MINIMIZE (Kanan Atas)
+-- ------------------------------------------
+-- Tombol Close (X)
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Name = "CloseBtn"
+CloseBtn.Parent = MainFrame
+CloseBtn.Size = UDim2.new(0, 25, 0, 25)
+CloseBtn.Position = UDim2.new(1, -30, 0, 8)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
+CloseBtn.Text = "X"
+CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseBtn.TextSize = 14
+CloseBtn.Font = Enum.Font.SourceSansBold
+
+local CloseCorner = Instance.new("UICorner")
+CloseCorner.CornerRadius = UDim.new(1, 0) -- Lingkaran sempurna
+CloseCorner.Parent = CloseBtn
+
+-- Tombol Minimize (-)
+local MinBtn = Instance.new("TextButton")
+MinBtn.Name = "MinBtn"
+MinBtn.Parent = MainFrame
+MinBtn.Size = UDim2.new(0, 25, 0, 25)
+MinBtn.Position = UDim2.new(1, -60, 0, 8)
+MinBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+MinBtn.Text = "-"
+MinBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+MinBtn.TextSize = 16
+MinBtn.Font = Enum.Font.SourceSansBold
+
+local MinCorner = Instance.new("UICorner")
+MinCorner.CornerRadius = UDim.new(1, 0)
+MinCorner.Parent = MinBtn
+
+-- ------------------------------------------
+-- TOMBOL EXPAND (Hanya Muncul Saat di-Minimize)
+-- ------------------------------------------
+local OpenBtn = Instance.new("TextButton")
+OpenBtn.Name = "OpenBtn"
+OpenBtn.Parent = ScreenGui
+OpenBtn.Size = UDim2.new(0, 50, 0, 50)
+OpenBtn.Position = UDim2.new(0.05, 0, 0.25, 0)
+OpenBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+OpenBtn.Text = "OPEN"
+OpenBtn.TextColor3 = Color3.fromRGB(255, 215, 0)
+OpenBtn.TextSize = 12
+OpenBtn.Font = Enum.Font.SourceSansBold
+OpenBtn.Visible = false -- Sembunyikan secara default
+OpenBtn.Active = true
+OpenBtn.Draggable = true
+
+local OpenCorner = Instance.new("UICorner")
+OpenCorner.CornerRadius = UDim.new(1, 0) -- Bentuk lingkaran
+OpenCorner.Parent = OpenBtn
+
+-- ==========================================
+-- 3. TOMBOL FITUR AUTO FARM
+-- ==========================================
 local function createToggleButton(name, text, positionY)
     local Button = Instance.new("TextButton")
     Button.Name = name
@@ -67,7 +134,6 @@ local function createToggleButton(name, text, positionY)
     return Button
 end
 
--- Membuat Tombol-Tombol Menu
 local btnHarvest = createToggleButton("BtnHarvest", "Auto Harvest (<80kg)", 50)
 local btnWater = createToggleButton("BtnWater", "Auto Water", 110)
 local btnBuySeed = createToggleButton("BtnBuySeed", "Auto Buy Seed (>80M)", 170)
@@ -85,22 +151,46 @@ InfoLabel.TextSize = 12
 InfoLabel.Font = Enum.Font.SourceSansItalic
 
 -- ==========================================
--- 3. FUNGSI UNTUK MENDAPATKAN DATA PEMAIN (CASH & FRUIT)
+-- 4. KONTROL TOMBOL CLOSE & MINIMIZE (LOGIKA)
 -- ==========================================
--- Fungsi ini otomatis mendeteksi jumlah uang dan berat buah Anda di dalam game GAG 2
+-- Logika Menutup UI (Close)
+CloseBtn.MouseButton1Click:Connect(function()
+    _G.AutoHarvest = false
+    _G.AutoWater = false
+    _G.AutoBuySeed = false
+    _G.AutoBuyGear = false
+    _G.ScriptRunning = false -- Hentikan semua looping
+    ScreenGui:Destroy() -- Hapus UI dari game
+end)
+
+-- Logika Mengecilkan UI (Minimize)
+MinBtn.MouseButton1Click:Connect(function()
+    MainFrame.Visible = false
+    OpenBtn.Position = MainFrame.Position -- Samakan posisi tombol Open dengan panel terakhir
+    OpenBtn.Visible = true
+end)
+
+-- Logika Membuka Kembali UI (Maximize)
+OpenBtn.MouseButton1Click:Connect(function()
+    OpenBtn.Visible = false
+    MainFrame.Position = OpenBtn.Position -- Samakan posisi panel dengan tombol Open terakhir
+    MainFrame.Visible = true
+end)
+
+-- ==========================================
+-- 5. FUNGSI UNTUK MENDAPATKAN DATA PEMAIN
+-- ==========================================
 local function getPlayerStats()
     local leaderstats = LocalPlayer:FindFirstChild("leaderstats")
     local s_money = 0
     local s_fruit = 0
     
     if leaderstats then
-        -- Mencari data uang (biasanya bernama "Sheckles", "Money", atau "Cash")
         local moneyObj = leaderstats:FindFirstChild("Sheckles") or leaderstats:FindFirstChild("Money") or leaderstats:FindFirstChild("Cash")
         if moneyObj then
             s_money = moneyObj.Value
         end
         
-        -- Mencari data berat buah/panen (biasanya bernama "Fruits", "Weight", atau "Fruit")
         local fruitObj = leaderstats:FindFirstChild("Fruits") or leaderstats:FindFirstChild("Weight") or leaderstats:FindFirstChild("Fruit")
         if fruitObj then
             s_fruit = fruitObj.Value
@@ -116,19 +206,20 @@ local function firePrompt(prompt)
 end
 
 -- ==========================================
--- 4. LOGIKA UTAMA (LOOP DETEKSI)
+-- 6. LOGIKA UTAMA (LOOP DETEKSI)
 -- ==========================================
 task.spawn(function()
-    while true do
+    while _G.ScriptRunning do
         task.wait(0.3)
         local money, fruitWeight = getPlayerStats()
 
         -- LOOP UNTUK HARVEST & WATER
         if _G.AutoHarvest or _G.AutoWater then
             for _, obj in pairs(workspace:GetDescendants()) do
+                if not _G.ScriptRunning then break end
                 if obj:IsA("ProximityPrompt") then
                     
-                    -- Aksi 1: AUTO HARVEST (Hanya berjalan jika berat buah DI BAWAH 80 Kg)
+                    -- Aksi 1: AUTO HARVEST (Hanya jika berat buah DI BAWAH 80 Kg)
                     if _G.AutoHarvest and fruitWeight < LIMIT_FRUIT_WEIGHT then
                         if obj.ActionText == "Harvest" or obj.ObjectText == "Harvest" then
                             if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
@@ -156,9 +247,10 @@ task.spawn(function()
             end
         end
 
-        -- LOOP UNTUK AUTO BUY (Hanya berjalan jika uang DI ATAS 80M)
+        -- LOOP UNTUK AUTO BUY (Hanya jika uang DI ATAS 80M)
         if (_G.AutoBuySeed or _G.AutoBuyGear) and money > LIMIT_MONEY_BUY then
             for _, obj in pairs(workspace:GetDescendants()) do
+                if not _G.ScriptRunning then break end
                 if obj:IsA("ProximityPrompt") then
                     
                     -- Aksi 3: AUTO BUY SEED
@@ -189,7 +281,7 @@ task.spawn(function()
 end)
 
 -- ==========================================
--- 5. KONTROL INTERAKSI TOMBOL (TOGGLE)
+-- 7. KONTROL INTERAKSI TOMBOL (TOGGLE)
 -- ==========================================
 btnHarvest.MouseButton1Click:Connect(function()
     _G.AutoHarvest = not _G.AutoHarvest
