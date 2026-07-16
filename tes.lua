@@ -38,7 +38,7 @@ _G.BaseTweenSpeed = 1.5
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "SpeedHubX_CustomUI"
 ScreenGui.ResetOnSpawn = false
--- Menghindari error jika dijalankan di lingkungan non-player executor
+
 pcall(function() ScreenGui.Parent = game:GetService("CoreInterface") end)
 if not ScreenGui.Parent then
     pcall(function() ScreenGui.Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui") end)
@@ -52,7 +52,7 @@ MainFrame.Position = UDim2.new(0.5, -275, 0.5, -190)
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
 MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
-MainFrame.Draggable = true -- Bisa digeser-geser di layar
+MainFrame.Draggable = true
 MainFrame.Parent = ScreenGui
 
 local UICorner = Instance.new("UICorner")
@@ -97,7 +97,7 @@ CloseBtn.MouseButton1Click:Connect(function()
     ScreenGui:Destroy()
 end)
 
--- Sidebar Container (Kiri)
+-- Sidebar Container
 local Sidebar = Instance.new("ScrollingFrame")
 Sidebar.Size = UDim2.new(0, 140, 1, -40)
 Sidebar.Position = UDim2.new(0, 0, 0, 40)
@@ -111,16 +111,14 @@ local SidebarLayout = Instance.new("UIListLayout")
 SidebarLayout.Padding = UDim.new(0, 4)
 SidebarLayout.Parent = Sidebar
 
--- Container Halaman (Kanan)
+-- Halaman Container
 local PageContainer = Instance.new("Frame")
 PageContainer.Size = UDim2.new(1, -140, 1, -40)
 PageContainer.Position = UDim2.new(0, 140, 0, 40)
 PageContainer.BackgroundTransparency = 1
 PageContainer.Parent = MainFrame
 
--- Engine Pembuat Komponen UI Secara Dinamis
 local pages = {}
-local activePage = nil
 
 local function CreatePage(pageName)
     local Page = Instance.new("ScrollingFrame")
@@ -128,7 +126,7 @@ local function CreatePage(pageName)
     Page.BackgroundTransparency = 1
     Page.BorderSizePixel = 0
     Page.Visible = false
-    Page.CanvasSize = UDim2.new(0, 0, 0, 2500) -- Ukuran memanjang ke bawah otomatis
+    Page.CanvasSize = UDim2.new(0, 0, 0, 2200)
     Page.ScrollBarThickness = 4
     Page.Parent = PageContainer
     
@@ -141,7 +139,6 @@ local function CreatePage(pageName)
     Padding.PaddingTop = UDim.new(0, 10)
     Padding.Parent = Page
 
-    -- Tombol di Sidebar
     local TabBtn = Instance.new("TextButton")
     TabBtn.Size = UDim2.new(1, -10, 0, 35)
     TabBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
@@ -161,7 +158,6 @@ local function CreatePage(pageName)
     return Page
 end
 
--- Generator Objek di Dalam Halaman
 local UI = {}
 
 function UI:AddLabel(page, text)
@@ -256,7 +252,7 @@ function UI:AddDropdown(page, text, options, callback)
     RealBtn.Size = UDim2.new(0, 170, 0, 25)
     RealBtn.Position = UDim2.new(1, -180, 0.5, -12)
     RealBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
-    RealBtn.Text = options[1] or "Click to type/select"
+    RealBtn.Text = options[1] or "Click to type"
     RealBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     RealBtn.Font = Enum.Font.SourceSans
     RealBtn.TextSize = 13
@@ -327,12 +323,9 @@ CreatePage("Shop")
 CreatePage("Webhook")
 CreatePage("Misc")
 
--- Menampilkan halaman default
 pages["Home"].Visible = true
 
--- -----------------------------------------------------------------------------
 -- ISI TAB: HOME
--- -----------------------------------------------------------------------------
 UI:AddLabel("Home", "Welcome to Speed Hub X Custom Engine")
 UI:AddSection("Home", "Discord")
 UI:AddButton("Home", "Discord Invite", function()
@@ -349,9 +342,7 @@ end)
 UI:AddToggle("Home", "Enable Walkspeed", false, function(v) _G.WalkspeedToggle = v end)
 UI:AddToggle("Home", "No Clip", false, function(v) _G.NoClipToggle = v end)
 
--- -----------------------------------------------------------------------------
 -- ISI TAB: MAIN
--- -----------------------------------------------------------------------------
 UI:AddSection("Main", "Teleport Manager")
 UI:AddDropdown("Main", "Select Mode", {"Tween Teleport", "Instant Teleport"}, function(v) _G.TeleportMode = v end)
 UI:AddTextBox("Main", "Base Tween Speed", "1.5", function(v) _G.BaseTweenSpeed = tonumber(v) or 1.5 end)
@@ -360,7 +351,7 @@ UI:AddSection("Main", "Stack Farm Manager")
 UI:AddToggle("Main", "Enable Stack Farming", false, function(v) _G.EnableStackFarming = v end)
 
 UI:AddSection("Main", "Automation Plants")
-UI:AddToggle("Main", "Disable Teleport", false, function(v) _G.DisableTeleportPlants = v v end)
+UI:AddToggle("Main", "Disable Teleport", false, function(v) _G.DisableTeleportPlants = v end)
 UI:AddDropdown("Main", "Select Seeds", FruitsList, function(v) _G.SelectedSeed = v end)
 UI:AddDropdown("Main", "Select Position", {"Player Position", "Sprinkler Radius"}, function(v) _G.SelectPosition = v end)
 UI:AddDropdown("Main", "Select Sprinkler", GearsList, function(v) _G.SelectedSprinkler = v end)
