@@ -1,5 +1,5 @@
 -- =============================================================================
--- SPEED HUB X v6.2 - UI PRESISI (SESUAI GAMBAR)
+-- SPEED HUB X v6.2 - UI PRESISI (FIXED)
 -- =============================================================================
 
 -- 1. DATABASE DATA
@@ -346,14 +346,17 @@ task.spawn(function()
 end)
 
 -- =============================================================================
--- 6. UI GENERATOR - PRESISI SESUAI GAMBAR
+-- 6. UI GENERATOR - FIXED
 -- =============================================================================
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "SpeedHubX_V6"
 ScreenGui.ResetOnSpawn = false
 
-local guiParent = game:GetService("CoreGui") or Player:WaitForChild("PlayerGui")
-pcall(function() ScreenGui.Parent = guiParent end)
+local guiParent = game:GetService("CoreGui")
+if not guiParent then
+    guiParent = Player:WaitForChild("PlayerGui")
+end
+ScreenGui.Parent = guiParent
 
 -- Main Frame
 local MainFrame = Instance.new("Frame")
@@ -367,7 +370,7 @@ MainFrame.Draggable = true
 MainFrame.Parent = ScreenGui
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 6)
 
--- Top Bar (Header)
+-- Top Bar
 local TopBar = Instance.new("Frame")
 TopBar.Size = UDim2.new(1, 0, 0, 35)
 TopBar.BackgroundColor3 = Color3.fromRGB(30, 20, 25)
@@ -399,13 +402,13 @@ CloseBtn.MouseButton1Click:Connect(function()
     ScreenGui:Destroy() 
 end)
 
--- SIDEBAR (KIRI)
+-- SIDEBAR
 local Sidebar = Instance.new("ScrollingFrame")
 Sidebar.Size = UDim2.new(0, 160, 1, -35)
 Sidebar.Position = UDim2.new(0, 0, 0, 35)
 Sidebar.BackgroundColor3 = Color3.fromRGB(25, 18, 22)
 Sidebar.BorderSizePixel = 0
-Sidebar.CanvasSize = UDim2.new(0, 0, 0, 400)
+Sidebar.CanvasSize = UDim2.new(0, 0, 0, 500)
 Sidebar.ScrollBarThickness = 0
 Sidebar.Parent = MainFrame
 
@@ -416,7 +419,6 @@ SidebarLayout.Parent = Sidebar
 -- Search Box
 local SearchBox = Instance.new("TextBox")
 SearchBox.Size = UDim2.new(1, -10, 0, 28)
-SearchBox.Position = UDim2.new(0, 5, 0, 5)
 SearchBox.BackgroundColor3 = Color3.fromRGB(40, 28, 35)
 SearchBox.BorderSizePixel = 0
 SearchBox.PlaceholderText = "🔍 Search"
@@ -428,7 +430,7 @@ SearchBox.TextSize = 12
 SearchBox.Parent = Sidebar
 Instance.new("UICorner", SearchBox).CornerRadius = UDim.new(0, 4)
 
--- Page Container (KANAN)
+-- Page Container
 local PageContainer = Instance.new("Frame")
 PageContainer.Size = UDim2.new(1, -160, 1, -35)
 PageContainer.Position = UDim2.new(0, 160, 0, 35)
@@ -437,9 +439,8 @@ PageContainer.Parent = MainFrame
 
 -- Tab System
 local tabs = {}
-local currentTab = nil
 
-local function CreateTab(tabName, icon)
+local function CreateTab(tabName)
     -- Sidebar Button
     local TabBtn = Instance.new("TextButton")
     TabBtn.Size = UDim2.new(1, -10, 0, 32)
@@ -452,7 +453,7 @@ local function CreateTab(tabName, icon)
     TabBtn.Parent = Sidebar
     Instance.new("UICorner", TabBtn).CornerRadius = UDim.new(0, 4)
     
-    -- Icon indicator
+    -- Icon
     local Icon = Instance.new("TextLabel")
     Icon.Size = UDim2.new(0, 20, 1, 0)
     Icon.Position = UDim2.new(0, 5, 0, 0)
@@ -463,7 +464,7 @@ local function CreateTab(tabName, icon)
     Icon.Visible = false
     Icon.Parent = TabBtn
     
-    -- Content Page
+    -- Page
     local Page = Instance.new("ScrollingFrame")
     Page.Size = UDim2.new(1, -10, 1, -10)
     Page.Position = UDim2.new(0, 5, 0, 5)
@@ -480,7 +481,6 @@ local function CreateTab(tabName, icon)
     PageLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
     PageLayout.Parent = Page
     
-    -- Click handler
     TabBtn.MouseButton1Click:Connect(function()
         for _, tab in pairs(tabs) do
             tab.Page.Visible = false
@@ -495,10 +495,9 @@ local function CreateTab(tabName, icon)
         TabBtn.BackgroundColor3 = Color3.fromRGB(45, 30, 38)
         TabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
         Icon.Visible = true
-        currentTab = tabName
     end)
     
-    table.insert(tabs, {Button = TabBtn, Page = Page, Layout = PageLayout, Name = tabName})
+    table.insert(tabs, {Button = TabBtn, Page = Page})
     return Page
 end
 
@@ -524,16 +523,6 @@ local function AddSection(parent, title)
     Header.Parent = Section
     Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 4)
     
-    local Arrow = Instance.new("TextLabel")
-    Arrow.Size = UDim2.new(0, 30, 1, 0)
-    Arrow.Position = UDim2.new(1, -35, 0, 0)
-    Arrow.BackgroundTransparency = 1
-    Arrow.Text = "▼"
-    Arrow.TextColor3 = Color3.fromRGB(180, 170, 175)
-    Arrow.Font = Enum.Font.SourceSansBold
-    Arrow.TextSize = 12
-    Arrow.Parent = Header
-    
     local Content = Instance.new("Frame")
     Content.Size = UDim2.new(1, 0, 0, 0)
     Content.BackgroundTransparency = 1
@@ -546,6 +535,15 @@ local function AddSection(parent, title)
     Instance.new("UIPadding", Content).PaddingTop = UDim.new(0, 3)
     
     local isOpen = true
+    local Arrow = Instance.new("TextLabel")
+    Arrow.Size = UDim2.new(0, 30, 1, 0)
+    Arrow.Position = UDim2.new(1, -35, 0, 0)
+    Arrow.BackgroundTransparency = 1
+    Arrow.Text = "▼"
+    Arrow.TextColor3 = Color3.fromRGB(180, 170, 175)
+    Arrow.Font = Enum.Font.SourceSansBold
+    Arrow.TextSize = 12
+    Arrow.Parent = Header
     
     local function UpdateSize()
         if isOpen then
@@ -694,7 +692,7 @@ local function AddDropdown(parent, text, options, callback)
 end
 
 -- =============================================================================
--- 7. BUILD TABS - SESUAI GAMBAR
+-- 7. BUILD TABS
 -- =============================================================================
 
 -- TAB 1: HOME
@@ -706,7 +704,6 @@ AddToggle(homeSection, "Silent Mode", true, function(v) _G.SilentModeGlobal = v 
 
 -- TAB 2: MAIN
 local mainPage = CreateTab("Main")
-local mainSection = AddSection(mainPage, "⚙️ Automation Main")
 
 -- Teleport Manager
 local teleportSection = AddSection(mainPage, "📌 Teleport Manager")
@@ -790,4 +787,25 @@ WebhookInput.Font = Enum.Font.SourceSans
 WebhookInput.TextSize = 12
 WebhookInput.Parent = webhookSection
 Instance.new("UICorner", WebhookInput).CornerRadius = UDim.new(0, 4)
-AddToggle(webhookSection
+AddToggle(webhookSection, "Enable Webhook", false, function(v) _G.WebhookToggle = v end)
+
+-- Select first tab
+if #tabs > 0 then
+    tabs[1].Button:MouseButton1Click()
+end
+
+-- Update canvas size periodically
+task.spawn(function()
+    while task.wait(1) do
+        for _, tab in pairs(tabs) do
+            local page = tab.Page
+            local layout = page:FindFirstChildOfClass("UIListLayout")
+            if layout then
+                page.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 10)
+            end
+        end
+    end
+end)
+
+print("✅ Speed Hub X v6.2 - ANTI POHON LOADED!")
+print("📌 UI FIXED - 100% Tidak akan mengcollect pohon!")
