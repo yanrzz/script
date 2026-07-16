@@ -1,9 +1,9 @@
 -- =============================================================================
--- SPEED HUB X REMAKE - 100% FIXED & WORKING STANDALONE ENGINE
+-- SPEED HUB X REMAKE - STRICT AUTO-COLLECT (TAMAN ONLY EDITION)
 -- =============================================================================
 
 -- 1. DATABASE DATA
-local FruitsList = {"All", "Carrot", "Strawberry", "Blueberry", "Tulip", "Tomato", "Bamboo", "Corn", "Apple", "Mango", "Mushroom", "Banana", "Grape", "Acorn", "Rocket Pop", "Pineapple", "Cactus", "Dragon Fruit", "Cherry", "Fire Fern", "Green Bean", "Coconut", "Sunflower", "Venus Fly Trap", "Poison Apple", "Pomegranate", "Venom Spritter", "Sun Bloom", "Moon Bloom", "Dragon's Breath", "Star Fruit"}
+local FruitsList = {"Carrot", "Strawberry", "Blueberry", "Tulip", "Tomato", "Bamboo", "Corn", "Apple", "Mango", "Mushroom", "Banana", "Grape", "Acorn", "Rocket Pop", "Pineapple", "Cactus", "Dragon Fruit", "Cherry", "Fire Fern", "Green Bean", "Coconut", "Sunflower", "Venus Fly Trap", "Poison Apple", "Pomegranate", "Venom Spritter", "Sun Bloom", "Moon Bloom", "Dragon's Breath", "Star Fruit"}
 local GearsList = {"All", "Common Watering Can", "Common Sprinkler", "Uncommon Sprinkler", "Rare Sprinkler", "Sign", "Trowel", "Speed Mushroom", "Jump Mushroom", "Supersize Mushroom", "Invisibility Mushroom", "Shrink Mushroom", "Flashbang", "Gnome", "Megafon", "Basic Pot", "Legendary Sprinkler", "Super Sprinkler", "Super Watering Can"}
 local RarityList = {"All", "Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic", "Super"}
 local MutationList = {"All", "None", "Frozen", "Gold", "Electric", "Rainbow", "Starstruck", "Bloodlit", "Glow", "Eclipsed", "Aurora"}
@@ -35,8 +35,24 @@ _G.CollectSelectedMutation = "All"
 _G.SellSelectedFruit = "All"
 _G.BuySelectedPet = "All"
 
+-- Helper function untuk cek apakah nama objek beneran buah (Anti-Kotak Surat)
+local function isRealFruit(itemName)
+    local lowerName = itemName:lower()
+    -- Cek ke daftar buah resmi
+    for _, fruit in pairs(FruitsList) do
+        if string.find(lowerName, fruit:lower()) then
+            return true
+        end
+    end
+    -- Cek keyword umum buah/tanaman pelengkap
+    if string.find(lowerName, "fruit") or string.find(lowerName, "seed") or string.find(lowerName, "harvest") then
+        return true
+    end
+    return false
+end
+
 -- =============================================================================
--- 3. CORE WORKING LOOPS (LOGIKA FITUR IN-GAME)
+-- 3. CORE WORKING LOOPS (LOGIKA ANTI KOTAK SURAT)
 -- =============================================================================
 local Player = game.Players.LocalPlayer
 
@@ -61,7 +77,7 @@ task.spawn(function()
     end)
 end)
 
--- Loop Auto Collect (Didesain ulang agar mendeteksi buah dengan akurat)
+-- Loop Auto Collect Spesifik Buah
 task.spawn(function()
     while task.wait(0.3) do
         if _G.AutoCollectFruit or _G.AutoCollectAllFruit then
@@ -70,52 +86,64 @@ task.spawn(function()
                 local hrp = char and char:FindFirstChild("HumanoidRootPart")
                 if not hrp then return end
                 
+                -- Cari buah di workspace
                 for _, obj in pairs(workspace:GetDescendants()) do
                     if not (_G.AutoCollectFruit or _G.AutoCollectAllFruit) then break end
                     
-                    -- Deteksi berbasis sentuhan (TouchTransmitter)
+                    -- Cek zona sentuh (TouchTransmitter)
                     if obj:IsA("TouchTransmitter") and obj.Parent and obj.Parent:IsA("BasePart") then
                         local item = obj.Parent
-                        local isMatch = false
                         
-                        if _G.AutoCollectAllFruit then
-                            isMatch = true
-                        else
-                            if _G.CollectSelectedFruit == "All" or string.find(item.Name:lower(), _G.CollectSelectedFruit:lower()) then
+                        -- VALIDASI KETAT: Namanya harus mengandung unsur buah, bukan "Mailbox" atau "Letter"
+                        if isRealFruit(item.Name) and not string.find(item.Name:lower(), "box") and not string.find(item.Name:lower(), "mail") then
+                            local isMatch = false
+                            
+                            if _G.AutoCollectAllFruit then
                                 isMatch = true
-                            end
-                        end
-                        
-                        if isMatch then
-                            if not _G.DisableTeleportCollection then
-                                hrp.CFrame = item.CFrame
-                                task.wait(0.1)
                             else
-                                firetouchinterest(hrp, item, 0)
-                                firetouchinterest(hrp, item, 1)
+                                if _G.CollectSelectedFruit == "All" or string.find(item.Name:lower(), _G.CollectSelectedFruit:lower()) then
+                                    isMatch = true
+                                end
+                            end
+                            
+                            if isMatch then
+                                if not _G.DisableTeleportCollection then
+                                    hrp.CFrame = item.CFrame
+                                    task.wait(0.1)
+                                else
+                                    firetouchinterest(hrp, item, 0)
+                                    firetouchinterest(hrp, item, 1)
+                                end
                             end
                         end
                         
-                    -- Deteksi berbasis tombol interaksi (ProximityPrompt)
+                    -- Cek tombol interaksi (ProximityPrompt)
                     elseif obj:IsA("ProximityPrompt") and obj.Parent and obj.Parent:IsA("BasePart") then
                         local prompt = obj
                         local item = prompt.Parent
-                        local isMatch = false
                         
-                        if _G.AutoCollectAllFruit then
-                            isMatch = true
-                        else
-                            if _G.CollectSelectedFruit == "All" or string.find(item.Name:lower(), _G.CollectSelectedFruit:lower()) then
-                                isMatch = true
+                        -- VALIDASI KETAT: Text/Nama objek harus ada hubungannya sama panen taman, bukan buka surat
+                        local promptText = (prompt.ObjectText .. prompt.ActionText):lower()
+                        if isRealFruit(item.Name) or string.find(promptText, "harvest") or string.find(promptText, "pick") or string.find(promptText, "tanam") then
+                            if not string.find(item.Name:lower(), "box") and not string.find(item.Name:lower(), "mail") then
+                                local isMatch = false
+                                
+                                if _G.AutoCollectAllFruit then
+                                    isMatch = true
+                                else
+                                    if _G.CollectSelectedFruit == "All" or string.find(item.Name:lower(), _G.CollectSelectedFruit:lower()) then
+                                        isMatch = true
+                                    end
+                                end
+                                
+                                if isMatch then
+                                    if not _G.DisableTeleportCollection then
+                                        hrp.CFrame = item.CFrame
+                                        task.wait(0.15)
+                                    end
+                                    fireproximityprompt(prompt)
+                                end
                             end
-                        end
-                        
-                        if isMatch then
-                            if not _G.DisableTeleportCollection then
-                                hrp.CFrame = item.CFrame
-                                task.wait(0.15)
-                            end
-                            fireproximityprompt(prompt)
                         end
                     end
                 end
@@ -125,10 +153,10 @@ task.spawn(function()
 end)
 
 -- =============================================================================
--- 4. CLEAN UI GENERATOR (BEBAS ERROR CRASH / STUCK)
+-- 4. CLEAN UI GENERATOR
 -- =============================================================================
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "SpeedHubX_V7_CleanRelease"
+ScreenGui.Name = "SpeedHubX_V8_TamanOnly"
 ScreenGui.ResetOnSpawn = false
 pcall(function() ScreenGui.Parent = game:GetService("CoreInterface") end)
 if not ScreenGui.Parent then pcall(function() ScreenGui.Parent = Player:WaitForChild("PlayerGui") end) end
@@ -155,7 +183,7 @@ TopCorner.CornerRadius = UDim.new(0, 8)
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, -100, 1, 0)
 Title.Position = UDim2.new(0, 15, 0, 0)
-Title.Text = "Speed Hub X | Version 5.1.4 | 100% FIXED WORKING"
+Title.Text = "Speed Hub X | Version 5.1.4 | ANTI-KOTAK SURAT BUG"
 Title.TextColor3 = Color3.fromRGB(225, 65, 65)
 Title.TextSize = 13
 Title.Font = Enum.Font.SourceSansBold
@@ -363,7 +391,6 @@ function UI:AddToggle(section, text, default, callback)
     end)
 end
 
--- Rekayasa Dropdown Aman Tanpa Perhitungan Koordinat Global (Anti Crash)
 function UI:AddDropdown(section, text, options, callback)
     local Frame = Instance.new("Frame")
     Frame.Size = UDim2.new(0, 395, 0, 36)
@@ -414,11 +441,9 @@ function UI:AddDropdown(section, text, options, callback)
             Frame.Size = UDim2.new(0, 395, 0, 36)
         end
         
-        -- Sesuaikan ulang tinggi section penampung otomatis
-        local secContent = section
-        local layout = secContent:FindFirstChildOfClass("UIListLayout")
+        local layout = section:FindFirstChildOfClass("UIListLayout")
         if layout then
-            secContent.Size = UDim2.new(0, 410, 0, layout.AbsoluteContentSize.Y + 10)
+            section.Size = UDim2.new(0, 410, 0, layout.AbsoluteContentSize.Y + 10)
         end
     end)
     
@@ -480,24 +505,11 @@ function UI:AddTextBox(section, text, placeholder, callback)
     Box.FocusLost:Connect(function() callback(Box.Text) end)
 end
 
-function UI:AddButton(section, text, callback)
-    local Btn = Instance.new("TextButton")
-    Btn.Size = UDim2.new(0, 395, 0, 32)
-    Btn.BackgroundColor3 = Color3.fromRGB(70, 40, 40)
-    Btn.Text = text
-    Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    Btn.Font = Enum.Font.SourceSansBold
-    Btn.TextSize = 13
-    Btn.Parent = section
-    Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 4)
-    Btn.MouseButton1Click:Connect(callback)
-end
-
 -- =============================================================================
--- 5. INITIALIZE PAGES & SECTIONS (MEMASUKKAN KONTEN)
+-- 5. INITIALIZE HALAMAN & KONTEN MENU
 -- =============================================================================
-CreatePage("Home")
-CreatePage("Main")
+local HomeTab = CreatePage("Home")
+local MainTab = CreatePage("Main")
 CreatePage("Automatically")
 CreatePage("Inventory")
 CreatePage("Shop")
@@ -506,29 +518,19 @@ CreatePage("Misc")
 
 pages["Home"].Visible = true
 
--- Tab Home
+-- Halaman Home
 local LocalPlayerSec = UI:AddSection("Home", "LocalPlayer Manager")
 UI:AddTextBox(LocalPlayerSec, "Set Custom Speed", "50", function(v) _G.CustomSpeed = tonumber(v) or 50 end)
 UI:AddToggle(LocalPlayerSec, "Enable Walkspeed", false, function(v) _G.WalkspeedToggle = v end)
 UI:AddToggle(LocalPlayerSec, "No Clip", false, function(v) _G.NoClipToggle = v end)
 
--- Tab Main
+-- Halaman Main
 local TeleportSec = UI:AddSection("Main", "Teleport Manager")
 UI:AddDropdown(TeleportSec, "Select Mode", {"Tween Teleport", "Instant Teleport"}, function(v) _G.TeleportMode = v end)
 
-local PlantsSec = UI:AddSection("Main", "Automation Plants")
-UI:AddToggle(PlantsSec, "Disable Teleport", false, function(v) _G.DisableTeleportPlants = v end)
-UI:AddDropdown(PlantsSec, "Select Seeds", FruitsList, function(v) _G.SelectedSeed = v end)
-UI:AddDropdown(PlantsSec, "Select Sprinkler", GearsList, function(v) _G.SelectedSprinkler = v end)
-UI:AddToggle(PlantsSec, "Auto Plants Seed", false, function(v) _G.AutoPlantsSeed = v end)
-UI:AddToggle(PlantsSec, "Auto Plants All Seeds", false, function(v) _G.AutoPlantsAllSeeds = v end)
-
--- SEKSI AUTO COLLECT (SUDAH DIPERBAIKI)
 local CollectSec = UI:AddSection("Main", "Automation Collection")
 UI:AddToggle(CollectSec, "Disable Teleport Collection", false, function(v) _G.DisableTeleportCollection = v end)
-UI:AddDropdown(CollectSec, "Select Fruit Filter", FruitsList, function(v) _G.CollectSelectedFruit = v end)
+local listFilter = {"All"} for _, f in pairs(FruitsList) do table.insert(listFilter, f) end
+UI:AddDropdown(CollectSec, "Select Fruit Filter", listFilter, function(v) _G.CollectSelectedFruit = v end)
 UI:AddToggle(CollectSec, "Auto Collect Fruit", false, function(v) _G.AutoCollectFruit = v end)
 UI:AddToggle(CollectSec, "Auto Collect All Fruit", false, function(v) _G.AutoCollectAllFruit = v end)
-
-local SellSec = UI:AddSection("Main", "Automation Sell")
-UI:AddToggle(SellSec, "Auto Sell All", false, function(v) _G.AutoSellAll = v end)
