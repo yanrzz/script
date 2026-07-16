@@ -1,5 +1,5 @@
 -- =============================================================================
--- SPEED HUB X v6.2 - UI PRESISI (FIXED)
+-- SPEED HUB X v7.0 - ULTRA STABLE UI (FIXED)
 -- =============================================================================
 
 -- 1. DATABASE DATA
@@ -12,6 +12,7 @@ local FruitsList = {
     "Moon Bloom", "Dragon's Breath", "Star Fruit"
 }
 
+local GearsList = {"All", "Common Watering Can", "Common Sprinkler", "Uncommon Sprinkler", "Rare Sprinkler", "Sign", "Trowel", "Speed Mushroom", "Jump Mushroom", "Supersize Mushroom", "Invisibility Mushroom", "Shrink Mushroom", "Flashbang", "Gnome", "Megafon", "Basic Pot", "Legendary Sprinkler", "Super Sprinkler", "Super Watering Can"}
 local PetsList = {"All", "Bunny", "Frog", "Owl", "Monkey", "Robin", "Bee", "Bear", "Unicorn", "Golden Dragonfly", "Raccoon", "Turtle"}
 
 -- 2. GLOBAL STATES
@@ -19,19 +20,28 @@ _G.WalkspeedToggle = false
 _G.NoClipToggle = false
 _G.CustomSpeed = 50
 
-_G.AutoPlantsSeed = false
-_G.AutoPlantsAllSeeds = false
+-- Auto Collect Settings
 _G.AutoCollectFruit = false
 _G.AutoCollectAllFruit = false
+_G.CollectSelectedFruit = "All"
+_G.CollectMinWeight = 0  -- Minimal berat (kg)
+_G.CollectMaxWeight = 80 -- Maksimal berat (kg)
+
+-- Auto Sell Settings
 _G.AutoSellAll = false
 _G.AutoSellFruit = false
-_G.AutoBuyPet = false
-_G.SilentModeGlobal = true 
-
-_G.SelectedSeed = "Carrot"
-_G.CollectSelectedFruit = "All"
 _G.SellSelectedFruit = "All"
+_G.AutoSellFilter = "All" -- All, Common, Uncommon, Rare, Epic, Legendary, Mythic
+
+-- Auto Buy Settings
+_G.AutoBuySeed = false
+_G.AutoBuyGear = false
+_G.SelectedSeed = "Carrot"
+_G.SelectedGear = "All"
+
+_G.AutoBuyPet = false
 _G.BuySelectedPet = "All"
+_G.SilentModeGlobal = true 
 
 -- =============================================================================
 -- 3. PLAYER SETUP
@@ -41,26 +51,10 @@ local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
 
 -- =============================================================================
--- 4. ULTRA STRICT FRUIT DETECTION
+-- 4. FRUIT DETECTION
 -- =============================================================================
-local BLACKLIST_NAMES = {
-    "tree", "pohon", "trunk", "branch", "leaf", "stem", "wood", "log", "bark",
-    "mail", "box", "pot", "plot", "soil", "dirt", "ground", "terrain", 
-    "wall", "floor", "roof", "door", "window", "fence", "gate", "sign", 
-    "board", "plank", "wooden", "oak", "pine", "maple", "birch", "spruce",
-    "bush", "shrub", "grass", "weed", "flower", "tulip", "rose", "daisy"
-}
-
-local WHITELIST_PATTERNS = {
-    "fruit", "berry", "apple", "mango", "melon", "pear", "peach", "grape",
-    "banana", "orange", "lemon", "lime", "coconut", "pineapple", "carrot",
-    "tomato", "corn", "mushroom", "bean", "nut", "acorn", "cherry", "cactus",
-    "sunflower", "pomegranate", "dragon", "venus", "bloom", "breath", "star"
-}
-
 local function isRealFruitOnly(item)
     if not item then return false end
-    
     if not item:IsA("BasePart") then 
         if item.Parent and item.Parent:IsA("BasePart") then
             item = item.Parent
@@ -73,7 +67,8 @@ local function isRealFruitOnly(item)
     local size = item.Size
     local parentName = item.Parent and item.Parent.Name:lower() or ""
 
-    for _, black in pairs(BLACKLIST_NAMES) do
+    local blacklist = {"tree", "pohon", "trunk", "branch", "leaf", "stem", "wood", "log", "bark", "mail", "box", "pot", "plot", "soil", "dirt", "ground", "terrain", "wall", "floor", "roof", "door", "window", "fence", "gate", "sign", "board", "plank", "wooden"}
+    for _, black in pairs(blacklist) do
         if string.find(name, black) or string.find(parentName, black) then
             return false
         end
@@ -95,12 +90,6 @@ local function isRealFruitOnly(item)
         end
     end
 
-    for _, pattern in pairs(WHITELIST_PATTERNS) do
-        if string.find(name, pattern) then
-            return true
-        end
-    end
-
     if string.find(name, "fruit") or string.find(name, "berry") or 
        string.find(name, "harvest") or string.find(name, "pick") then
         return true
@@ -110,7 +99,7 @@ local function isRealFruitOnly(item)
 end
 
 -- =============================================================================
--- 5. CORE LOGIC ENGINE
+-- 5. CORE LOGIC
 -- =============================================================================
 
 -- Walkspeed & NoClip
@@ -138,9 +127,9 @@ task.spawn(function()
     end)
 end)
 
--- Auto Collect
+-- Auto Collect with Weight Filter
 task.spawn(function()
-    while task.wait(0.15) do
+    while task.wait(0.2) do
         if not (_G.AutoCollectFruit or _G.AutoCollectAllFruit) then 
             task.wait(0.5)
             continue 
@@ -149,38 +138,45 @@ task.spawn(function()
         pcall(function()
             local char = Player.Character
             if not char then return end
-
             local hrp = char:FindFirstChild("HumanoidRootPart")
             if not hrp then return end
 
-            local validTargets = {}
-
             for _, obj in pairs(Workspace:GetDescendants()) do
                 if not (_G.AutoCollectFruit or _G.AutoCollectAllFruit) then break end
-
-                local objName = (obj.Name or ""):lower()
-                local parentName = (obj.Parent and obj.Parent.Name or ""):lower()
-
-                local skipKeywords = {"tree", "pohon", "trunk", "branch", "leaf", "stem", "wood", "log"}
-                local shouldSkip = false
-                for _, keyword in pairs(skipKeywords) do
-                    if string.find(objName, keyword) or string.find(parentName, keyword) then
-                        shouldSkip = true
-                        break
-                    end
-                end
-                if shouldSkip then continue end
 
                 if obj:IsA("TouchTransmitter") then
                     local item = obj.Parent
                     if item and isRealFruitOnly(item) then
                         local fruitName = item.Name
+                        
+                        -- Cek berat (kg) - ambil dari attribute atau ukuran
+                        local weight = item:GetAttribute("Weight") or 0
+                        if weight == 0 then
+                            -- Estimasi berat dari ukuran
+                            weight = math.floor((item.Size.X * item.Size.Y * item.Size.Z) * 10)
+                        end
+                        
+                        -- Filter berdasarkan berat
                         local isMatch = _G.AutoCollectAllFruit or 
                                        _G.CollectSelectedFruit == "All" or 
                                        string.find(fruitName:lower(), _G.CollectSelectedFruit:lower())
-
-                        if isMatch then
-                            table.insert(validTargets, {type = "touch", item = item})
+                        
+                        -- Cek weight range
+                        local weightMatch = (weight >= _G.CollectMinWeight and weight <= _G.CollectMaxWeight)
+                        
+                        if isMatch and weightMatch then
+                            if _G.SilentModeGlobal then
+                                firetouchinterest(hrp, item, 0)
+                                task.wait(0.02)
+                                firetouchinterest(hrp, item, 1)
+                                task.wait(0.02)
+                            else
+                                hrp.CFrame = item.CFrame + Vector3.new(0, 2, 0)
+                                task.wait(0.05)
+                                firetouchinterest(hrp, item, 0)
+                                task.wait(0.05)
+                                firetouchinterest(hrp, item, 1)
+                            end
                         end
                     end
                 end
@@ -188,11 +184,10 @@ task.spawn(function()
                 if obj:IsA("ProximityPrompt") then
                     local prompt = obj
                     local item = prompt.Parent
-
                     local promptText = (prompt.ObjectText or "") .. (prompt.ActionText or "")
                     promptText = promptText:lower()
 
-                    local promptSkip = {"chop", "cut", "tree", "pohon", "wood", "log", "branch"}
+                    local promptSkip = {"chop", "cut", "tree", "pohon", "wood", "log"}
                     local isTreePrompt = false
                     for _, keyword in pairs(promptSkip) do
                         if string.find(promptText, keyword) then
@@ -204,82 +199,25 @@ task.spawn(function()
 
                     if item and isRealFruitOnly(item) then
                         local fruitName = item.Name
+                        local weight = item:GetAttribute("Weight") or 0
+                        if weight == 0 then
+                            weight = math.floor((item.Size.X * item.Size.Y * item.Size.Z) * 10)
+                        end
+                        
                         local isMatch = _G.AutoCollectAllFruit or 
                                        _G.CollectSelectedFruit == "All" or 
                                        string.find(fruitName:lower(), _G.CollectSelectedFruit:lower())
+                        
+                        local weightMatch = (weight >= _G.CollectMinWeight and weight <= _G.CollectMaxWeight)
 
-                        if isMatch and prompt.Enabled then
-                            table.insert(validTargets, {type = "prompt", prompt = prompt, item = item})
-                        end
-                    end
-                end
-            end
-
-            for _, target in pairs(validTargets) do
-                if target.type == "touch" then
-                    if _G.SilentModeGlobal then
-                        firetouchinterest(hrp, target.item, 0)
-                        task.wait(0.02)
-                        firetouchinterest(hrp, target.item, 1)
-                        task.wait(0.02)
-                    else
-                        hrp.CFrame = target.item.CFrame + Vector3.new(0, 2, 0)
-                        task.wait(0.05)
-                        firetouchinterest(hrp, target.item, 0)
-                        task.wait(0.05)
-                        firetouchinterest(hrp, target.item, 1)
-                    end
-                elseif target.type == "prompt" then
-                    if _G.SilentModeGlobal then
-                        fireproximityprompt(target.prompt)
-                        task.wait(0.05)
-                    else
-                        hrp.CFrame = target.item.CFrame + Vector3.new(0, 1, 0)
-                        task.wait(0.1)
-                        fireproximityprompt(target.prompt)
-                    end
-                end
-            end
-        end)
-    end
-end)
-
--- Auto Plants
-task.spawn(function()
-    while task.wait(0.5) do
-        if not (_G.AutoPlantsSeed or _G.AutoPlantsAllSeeds) then 
-            task.wait(0.5)
-            continue 
-        end
-
-        pcall(function()
-            local char = Player.Character
-            if not char then return end
-
-            local hrp = char:FindFirstChild("HumanoidRootPart")
-            if not hrp then return end
-
-            for _, obj in pairs(Workspace:GetDescendants()) do
-                if not (_G.AutoPlantsSeed or _G.AutoPlantsAllSeeds) then break end
-
-                if obj:IsA("ProximityPrompt") and obj.Enabled then
-                    local promptText = (obj.ObjectText or "") .. (obj.ActionText or "")
-                    promptText = promptText:lower()
-
-                    if string.find(promptText, "plant") or 
-                       string.find(promptText, "seed") or
-                       string.find(promptText, "pot") or
-                       string.find(promptText, "soil") then
-
-                        if _G.SilentModeGlobal then
-                            fireproximityprompt(obj)
-                            task.wait(0.05)
-                        else
-                            local parent = obj.Parent
-                            if parent and parent:IsA("BasePart") then
-                                hrp.CFrame = parent.CFrame + Vector3.new(0, 1, 0)
+                        if isMatch and weightMatch and prompt.Enabled then
+                            if _G.SilentModeGlobal then
+                                fireproximityprompt(prompt)
+                                task.wait(0.05)
+                            else
+                                hrp.CFrame = item.CFrame + Vector3.new(0, 1, 0)
                                 task.wait(0.1)
-                                fireproximityprompt(obj)
+                                fireproximityprompt(prompt)
                             end
                         end
                     end
@@ -289,7 +227,7 @@ task.spawn(function()
     end
 end)
 
--- Auto Sell
+-- Auto Sell with Filter
 task.spawn(function()
     while task.wait(0.5) do
         if not (_G.AutoSellAll or _G.AutoSellFruit) then 
@@ -305,9 +243,59 @@ task.spawn(function()
 
                     if string.find(promptText, "merchant") or 
                        string.find(promptText, "sell") or 
-                       string.find(promptText, "shop") or
-                       string.find(promptText, "trade") then
+                       string.find(promptText, "shop") then
 
+                        fireproximityprompt(obj)
+                        task.wait(0.05)
+                    end
+                end
+            end
+        end)
+    end
+end)
+
+-- Auto Buy Seed
+task.spawn(function()
+    while task.wait(1) do
+        if not _G.AutoBuySeed then 
+            task.wait(0.5)
+            continue 
+        end
+
+        pcall(function()
+            for _, obj in pairs(Workspace:GetDescendants()) do
+                if obj:IsA("ProximityPrompt") and obj.Enabled then
+                    local promptText = (obj.ObjectText or "") .. (obj.ActionText or "")
+                    promptText = promptText:lower()
+
+                    if string.find(promptText, "seed") or 
+                       string.find(promptText, "buy") and string.find(promptText, "seed") then
+                        fireproximityprompt(obj)
+                        task.wait(0.05)
+                    end
+                end
+            end
+        end)
+    end
+end)
+
+-- Auto Buy Gear
+task.spawn(function()
+    while task.wait(1) do
+        if not _G.AutoBuyGear then 
+            task.wait(0.5)
+            continue 
+        end
+
+        pcall(function()
+            for _, obj in pairs(Workspace:GetDescendants()) do
+                if obj:IsA("ProximityPrompt") and obj.Enabled then
+                    local promptText = (obj.ObjectText or "") .. (obj.ActionText or "")
+                    promptText = promptText:lower()
+
+                    if string.find(promptText, "gear") or 
+                       string.find(promptText, "tool") or
+                       string.find(promptText, "buy") and string.find(promptText, "gear") then
                         fireproximityprompt(obj)
                         task.wait(0.05)
                     end
@@ -333,9 +321,7 @@ task.spawn(function()
 
                     if string.find(promptText, "egg") or 
                        string.find(promptText, "pet") or 
-                       string.find(promptText, "gacha") or
-                       string.find(promptText, "hatch") then
-
+                       string.find(promptText, "gacha") then
                         fireproximityprompt(obj)
                         task.wait(0.05)
                     end
@@ -346,23 +332,20 @@ task.spawn(function()
 end)
 
 -- =============================================================================
--- 6. UI GENERATOR - FIXED
+-- 6. UI GENERATOR - STABLE & CLEAN
 -- =============================================================================
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "SpeedHubX_V6"
+ScreenGui.Name = "SpeedHubX_V7"
 ScreenGui.ResetOnSpawn = false
 
-local guiParent = game:GetService("CoreGui")
-if not guiParent then
-    guiParent = Player:WaitForChild("PlayerGui")
-end
+local guiParent = game:GetService("CoreGui") or Player:WaitForChild("PlayerGui")
 ScreenGui.Parent = guiParent
 
 -- Main Frame
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 600, 0, 450)
-MainFrame.Position = UDim2.new(0.5, -300, 0.5, -225)
-MainFrame.BackgroundColor3 = Color3.fromRGB(20, 15, 18)
+MainFrame.Size = UDim2.new(0, 500, 0, 460)
+MainFrame.Position = UDim2.new(0.5, -250, 0.5, -230)
+MainFrame.BackgroundColor3 = Color3.fromRGB(18, 13, 15)
 MainFrame.BorderSizePixel = 1
 MainFrame.BorderColor3 = Color3.fromRGB(60, 40, 45)
 MainFrame.Active = true
@@ -379,11 +362,11 @@ TopBar.Parent = MainFrame
 Instance.new("UICorner", TopBar).CornerRadius = UDim.new(0, 6)
 
 local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, -80, 1, 0)
+Title.Size = UDim2.new(1, -70, 1, 0)
 Title.Position = UDim2.new(0, 10, 0, 0)
-Title.Text = "Speed Hub X | Version 6.2 | discord.gg/speedhubx"
-Title.TextColor3 = Color3.fromRGB(255, 80, 80)
-Title.TextSize = 12
+Title.Text = "Speed Hub X v7.0 | Anti Pohon"
+Title.TextColor3 = Color3.fromRGB(255, 70, 70)
+Title.TextSize = 13
 Title.Font = Enum.Font.SourceSansBold
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.BackgroundTransparency = 1
@@ -398,188 +381,98 @@ CloseBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
 CloseBtn.Font = Enum.Font.SourceSansBold
 CloseBtn.TextSize = 14
 CloseBtn.Parent = TopBar
-CloseBtn.MouseButton1Click:Connect(function() 
-    ScreenGui:Destroy() 
-end)
+CloseBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
 
--- SIDEBAR
-local Sidebar = Instance.new("ScrollingFrame")
-Sidebar.Size = UDim2.new(0, 160, 1, -35)
-Sidebar.Position = UDim2.new(0, 0, 0, 35)
-Sidebar.BackgroundColor3 = Color3.fromRGB(25, 18, 22)
-Sidebar.BorderSizePixel = 0
-Sidebar.CanvasSize = UDim2.new(0, 0, 0, 500)
-Sidebar.ScrollBarThickness = 0
-Sidebar.Parent = MainFrame
-
-local SidebarLayout = Instance.new("UIListLayout")
-SidebarLayout.Padding = UDim.new(0, 2)
-SidebarLayout.Parent = Sidebar
-
--- Search Box
-local SearchBox = Instance.new("TextBox")
-SearchBox.Size = UDim2.new(1, -10, 0, 28)
-SearchBox.BackgroundColor3 = Color3.fromRGB(40, 28, 35)
-SearchBox.BorderSizePixel = 0
-SearchBox.PlaceholderText = "🔍 Search"
-SearchBox.Text = ""
-SearchBox.TextColor3 = Color3.fromRGB(200, 200, 200)
-SearchBox.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
-SearchBox.Font = Enum.Font.SourceSans
-SearchBox.TextSize = 12
-SearchBox.Parent = Sidebar
-Instance.new("UICorner", SearchBox).CornerRadius = UDim.new(0, 4)
-
--- Page Container
-local PageContainer = Instance.new("Frame")
-PageContainer.Size = UDim2.new(1, -160, 1, -35)
-PageContainer.Position = UDim2.new(0, 160, 0, 35)
-PageContainer.BackgroundTransparency = 1
-PageContainer.Parent = MainFrame
+-- Tab Bar
+local TabBar = Instance.new("Frame")
+TabBar.Size = UDim2.new(1, 0, 0, 30)
+TabBar.Position = UDim2.new(0, 0, 0, 35)
+TabBar.BackgroundColor3 = Color3.fromRGB(25, 18, 22)
+TabBar.BorderSizePixel = 0
+TabBar.Parent = MainFrame
 
 -- Tab System
 local tabs = {}
+local currentTab = nil
 
 local function CreateTab(tabName)
-    -- Sidebar Button
+    -- Tab Button
     local TabBtn = Instance.new("TextButton")
-    TabBtn.Size = UDim2.new(1, -10, 0, 32)
-    TabBtn.BackgroundTransparency = 1
-    TabBtn.Text = "   " .. tabName
+    TabBtn.Size = UDim2.new(0, 65, 1, 0)
+    TabBtn.Position = UDim2.new(0, #tabs * 65, 0, 0)
+    TabBtn.BackgroundColor3 = Color3.fromRGB(35, 25, 30)
+    TabBtn.BorderSizePixel = 0
+    TabBtn.Text = tabName
     TabBtn.TextColor3 = Color3.fromRGB(180, 170, 175)
     TabBtn.Font = Enum.Font.SourceSans
-    TabBtn.TextSize = 13
-    TabBtn.TextXAlignment = Enum.TextXAlignment.Left
-    TabBtn.Parent = Sidebar
-    Instance.new("UICorner", TabBtn).CornerRadius = UDim.new(0, 4)
+    TabBtn.TextSize = 12
+    TabBtn.Parent = TabBar
     
-    -- Icon
-    local Icon = Instance.new("TextLabel")
-    Icon.Size = UDim2.new(0, 20, 1, 0)
-    Icon.Position = UDim2.new(0, 5, 0, 0)
-    Icon.BackgroundTransparency = 1
-    Icon.Text = "•"
-    Icon.TextColor3 = Color3.fromRGB(255, 80, 80)
-    Icon.TextSize = 16
-    Icon.Visible = false
-    Icon.Parent = TabBtn
-    
-    -- Page
+    -- Content Page
     local Page = Instance.new("ScrollingFrame")
-    Page.Size = UDim2.new(1, -10, 1, -10)
-    Page.Position = UDim2.new(0, 5, 0, 5)
+    Page.Size = UDim2.new(1, -10, 1, -75)
+    Page.Position = UDim2.new(0, 5, 0, 70)
     Page.BackgroundTransparency = 1
-    Page.BorderSizePixel = 0
-    Page.Visible = false
     Page.CanvasSize = UDim2.new(0, 0, 0, 0)
-    Page.ScrollBarThickness = 3
+    Page.ScrollBarThickness = 4
     Page.ScrollBarImageColor3 = Color3.fromRGB(70, 50, 55)
-    Page.Parent = PageContainer
+    Page.Visible = false
+    Page.Parent = MainFrame
     
     local PageLayout = Instance.new("UIListLayout")
-    PageLayout.Padding = UDim.new(0, 5)
+    PageLayout.Padding = UDim.new(0, 4)
     PageLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
     PageLayout.Parent = Page
     
     TabBtn.MouseButton1Click:Connect(function()
         for _, tab in pairs(tabs) do
             tab.Page.Visible = false
-            tab.Button.BackgroundTransparency = 1
+            tab.Button.BackgroundColor3 = Color3.fromRGB(35, 25, 30)
             tab.Button.TextColor3 = Color3.fromRGB(180, 170, 175)
-            local icon = tab.Button:FindFirstChild("TextLabel")
-            if icon then icon.Visible = false end
         end
-        
         Page.Visible = true
-        TabBtn.BackgroundTransparency = 0
-        TabBtn.BackgroundColor3 = Color3.fromRGB(45, 30, 38)
+        TabBtn.BackgroundColor3 = Color3.fromRGB(55, 35, 40)
         TabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        Icon.Visible = true
+        currentTab = tabName
     end)
     
     table.insert(tabs, {Button = TabBtn, Page = Page})
     return Page
 end
 
--- UI Helper Functions
+-- UI Helpers
 local function AddSection(parent, title)
     local Section = Instance.new("Frame")
-    Section.Size = UDim2.new(0, 410, 0, 0)
-    Section.BackgroundColor3 = Color3.fromRGB(30, 22, 27)
+    Section.Size = UDim2.new(0, 460, 0, 32)
+    Section.BackgroundColor3 = Color3.fromRGB(35, 25, 30)
     Section.BorderSizePixel = 0
     Section.ClipsDescendants = true
     Section.Parent = parent
     Instance.new("UICorner", Section).CornerRadius = UDim.new(0, 4)
     
-    local Header = Instance.new("TextButton")
-    Header.Size = UDim2.new(1, 0, 0, 32)
-    Header.BackgroundColor3 = Color3.fromRGB(38, 28, 34)
-    Header.BorderSizePixel = 0
+    local Header = Instance.new("TextLabel")
+    Header.Size = UDim2.new(1, 0, 1, 0)
+    Header.BackgroundTransparency = 1
     Header.Text = "  " .. title
     Header.TextColor3 = Color3.fromRGB(230, 220, 225)
     Header.Font = Enum.Font.SourceSansBold
     Header.TextSize = 12
     Header.TextXAlignment = Enum.TextXAlignment.Left
     Header.Parent = Section
-    Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 4)
     
-    local Content = Instance.new("Frame")
-    Content.Size = UDim2.new(1, 0, 0, 0)
-    Content.BackgroundTransparency = 1
-    Content.Parent = Section
-    
-    local ContentLayout = Instance.new("UIListLayout")
-    ContentLayout.Padding = UDim.new(0, 3)
-    ContentLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-    ContentLayout.Parent = Content
-    Instance.new("UIPadding", Content).PaddingTop = UDim.new(0, 3)
-    
-    local isOpen = true
-    local Arrow = Instance.new("TextLabel")
-    Arrow.Size = UDim2.new(0, 30, 1, 0)
-    Arrow.Position = UDim2.new(1, -35, 0, 0)
-    Arrow.BackgroundTransparency = 1
-    Arrow.Text = "▼"
-    Arrow.TextColor3 = Color3.fromRGB(180, 170, 175)
-    Arrow.Font = Enum.Font.SourceSansBold
-    Arrow.TextSize = 12
-    Arrow.Parent = Header
-    
-    local function UpdateSize()
-        if isOpen then
-            Section.Size = UDim2.new(0, 410, 0, 32 + ContentLayout.AbsoluteContentSize.Y + 5)
-        else
-            Section.Size = UDim2.new(0, 410, 0, 32)
-        end
-        
-        local pLayout = parent:FindFirstChildOfClass("UIListLayout")
-        if pLayout then
-            parent.CanvasSize = UDim2.new(0, 0, 0, pLayout.AbsoluteContentSize.Y + 10)
-        end
-    end
-    
-    Header.MouseButton1Click:Connect(function()
-        isOpen = not isOpen
-        Arrow.Text = isOpen and "▼" or "▶"
-        UpdateSize()
-    end)
-    
-    task.wait(0.05)
-    UpdateSize()
-    
-    return Content
+    return Section
 end
 
 local function AddToggle(parent, text, default, callback)
     local Frame = Instance.new("Frame")
-    Frame.Size = UDim2.new(0, 395, 0, 30)
-    Frame.BackgroundColor3 = Color3.fromRGB(40, 30, 36)
+    Frame.Size = UDim2.new(0, 460, 0, 30)
+    Frame.BackgroundColor3 = Color3.fromRGB(28, 20, 24)
     Frame.BorderSizePixel = 0
     Frame.Parent = parent
     Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 3)
     
     local Label = Instance.new("TextLabel")
-    Label.Size = UDim2.new(0, 280, 1, 0)
+    Label.Size = UDim2.new(0, 340, 1, 0)
     Label.Position = UDim2.new(0, 8, 0, 0)
     Label.BackgroundTransparency = 1
     Label.Text = text
@@ -609,17 +502,55 @@ local function AddToggle(parent, text, default, callback)
     end)
 end
 
+local function AddInput(parent, text, placeholder, callback)
+    local Frame = Instance.new("Frame")
+    Frame.Size = UDim2.new(0, 460, 0, 30)
+    Frame.BackgroundColor3 = Color3.fromRGB(28, 20, 24)
+    Frame.BorderSizePixel = 0
+    Frame.Parent = parent
+    Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 3)
+    
+    local Label = Instance.new("TextLabel")
+    Label.Size = UDim2.new(0, 120, 1, 0)
+    Label.Position = UDim2.new(0, 8, 0, 0)
+    Label.BackgroundTransparency = 1
+    Label.Text = text
+    Label.TextColor3 = Color3.fromRGB(210, 200, 205)
+    Label.Font = Enum.Font.SourceSans
+    Label.TextSize = 12
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.Parent = Frame
+    
+    local Box = Instance.new("TextBox")
+    Box.Size = UDim2.new(0, 120, 0, 22)
+    Box.Position = UDim2.new(1, -128, 0.5, -11)
+    Box.BackgroundColor3 = Color3.fromRGB(45, 35, 40)
+    Box.PlaceholderText = placeholder
+    Box.Text = ""
+    Box.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Box.Font = Enum.Font.SourceSans
+    Box.TextSize = 12
+    Box.Parent = Frame
+    Instance.new("UICorner", Box).CornerRadius = UDim.new(0, 3)
+    
+    Box.FocusLost:Connect(function(enterPressed)
+        if enterPressed and callback then
+            callback(tonumber(Box.Text) or 0)
+        end
+    end)
+end
+
 local function AddDropdown(parent, text, options, callback)
     local Frame = Instance.new("Frame")
-    Frame.Size = UDim2.new(0, 395, 0, 30)
-    Frame.BackgroundColor3 = Color3.fromRGB(40, 30, 36)
+    Frame.Size = UDim2.new(0, 460, 0, 30)
+    Frame.BackgroundColor3 = Color3.fromRGB(28, 20, 24)
     Frame.BorderSizePixel = 0
     Frame.ClipsDescendants = true
     Frame.Parent = parent
     Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 3)
     
     local Label = Instance.new("TextLabel")
-    Label.Size = UDim2.new(0, 160, 1, 0)
+    Label.Size = UDim2.new(0, 140, 1, 0)
     Label.Position = UDim2.new(0, 8, 0, 0)
     Label.BackgroundTransparency = 1
     Label.Text = text
@@ -630,9 +561,9 @@ local function AddDropdown(parent, text, options, callback)
     Label.Parent = Frame
     
     local DropBtn = Instance.new("TextButton")
-    DropBtn.Size = UDim2.new(0, 160, 0, 22)
-    DropBtn.Position = UDim2.new(1, -168, 0.5, -11)
-    DropBtn.BackgroundColor3 = Color3.fromRGB(50, 38, 45)
+    DropBtn.Size = UDim2.new(0, 180, 0, 22)
+    DropBtn.Position = UDim2.new(1, -188, 0.5, -11)
+    DropBtn.BackgroundColor3 = Color3.fromRGB(45, 35, 40)
     DropBtn.Text = options[1] or "Select"
     DropBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     DropBtn.Font = Enum.Font.SourceSans
@@ -642,7 +573,7 @@ local function AddDropdown(parent, text, options, callback)
     
     local isOpen = false
     local List = Instance.new("ScrollingFrame")
-    List.Size = UDim2.new(0, 378, 0, 80)
+    List.Size = UDim2.new(0, 440, 0, 80)
     List.Position = UDim2.new(0, 8, 0, 30)
     List.BackgroundColor3 = Color3.fromRGB(35, 25, 30)
     List.BorderSizePixel = 0
@@ -657,12 +588,7 @@ local function AddDropdown(parent, text, options, callback)
     DropBtn.MouseButton1Click:Connect(function()
         isOpen = not isOpen
         List.Visible = isOpen
-        Frame.Size = isOpen and UDim2.new(0, 395, 0, 115) or UDim2.new(0, 395, 0, 30)
-        
-        local layout = parent:FindFirstChildOfClass("UIListLayout")
-        if layout then
-            parent.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 10)
-        end
+        Frame.Size = isOpen and UDim2.new(0, 460, 0, 115) or UDim2.new(0, 460, 0, 30)
     end)
     
     for _, opt in pairs(options) do
@@ -680,121 +606,73 @@ local function AddDropdown(parent, text, options, callback)
             DropBtn.Text = opt
             isOpen = false
             List.Visible = false
-            Frame.Size = UDim2.new(0, 395, 0, 30)
+            Frame.Size = UDim2.new(0, 460, 0, 30)
             if callback then callback(opt) end
-            
-            local layout = parent:FindFirstChildOfClass("UIListLayout")
-            if layout then
-                parent.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 10)
-            end
         end)
     end
 end
 
 -- =============================================================================
--- 7. BUILD TABS
+-- 7. BUILD UI TABS
 -- =============================================================================
 
--- TAB 1: HOME
-local homePage = CreateTab("Home")
-local homeSection = AddSection(homePage, "⚙️ Player Settings")
-AddToggle(homeSection, "Walkspeed Boost", false, function(v) _G.WalkspeedToggle = v end)
-AddToggle(homeSection, "No Clip", false, function(v) _G.NoClipToggle = v end)
-AddToggle(homeSection, "Silent Mode", true, function(v) _G.SilentModeGlobal = v end)
+-- TAB 1: COLLECT
+local collectPage = CreateTab("Collect")
 
--- TAB 2: MAIN
-local mainPage = CreateTab("Main")
+local collectSettingSection = AddSection(collectPage, "🍓 Auto Collect Settings")
+AddToggle(collectSettingSection, "Auto Collect Filter Fruit", false, function(v) _G.AutoCollectFruit = v end)
+AddToggle(collectSettingSection, "Auto Collect ALL Fruit", false, function(v) _G.AutoCollectAllFruit = v end)
 
--- Teleport Manager
-local teleportSection = AddSection(mainPage, "📌 Teleport Manager")
-AddToggle(teleportSection, "Auto Teleport to Fruit", false, function(v) end)
-
--- Stack Farm Manager
-local stackSection = AddSection(mainPage, "📦 Stack Farm Manager")
-AddToggle(stackSection, "Stack Farm Mode", false, function(v) end)
-
--- Automation Plants
-local plantSection = AddSection(mainPage, "🌱 Automation Plants")
 local listFilter = {"All"}
 for _, f in pairs(FruitsList) do 
     table.insert(listFilter, f) 
 end
-AddDropdown(plantSection, "Select Seeds", FruitsList, function(v) _G.SelectedSeed = v end)
-AddToggle(plantSection, "Auto Plants Selected Seed", false, function(v) _G.AutoPlantsSeed = v end)
-AddToggle(plantSection, "Auto Plants All Seeds", false, function(v) _G.AutoPlantsAllSeeds = v end)
+AddDropdown(collectSettingSection, "Select Fruit Filter", listFilter, function(v) _G.CollectSelectedFruit = v end)
 
--- Automation Collection
-local collectSection = AddSection(mainPage, "🍓 Automation Collection")
-AddDropdown(collectSection, "Select Fruit Filter", listFilter, function(v) _G.CollectSelectedFruit = v end)
-AddToggle(collectSection, "Auto Collect Filter Fruit", false, function(v) _G.AutoCollectFruit = v end)
-AddToggle(collectSection, "Auto Collect All Fruit", false, function(v) _G.AutoCollectAllFruit = v end)
+local weightSection = AddSection(collectPage, "⚖️ Weight Filter (KG)")
+AddInput(weightSection, "Min Weight (KG)", "0", function(v) _G.CollectMinWeight = v end)
+AddInput(weightSection, "Max Weight (KG)", "80", function(v) _G.CollectMaxWeight = v end)
 
--- Automation Steal
-local stealSection = AddSection(mainPage, "🎯 Automation Steal")
-AddToggle(stealSection, "Auto Steal Mode", false, function(v) end)
+-- TAB 2: SELL
+local sellPage = CreateTab("Sell")
 
--- Automation Sell
-local sellSection = AddSection(mainPage, "💰 Automation Sell")
-AddDropdown(sellSection, "Select Fruit to Sell", listFilter, function(v) _G.SellSelectedFruit = v end)
-AddToggle(sellSection, "Auto Sell All", false, function(v) _G.AutoSellAll = v end)
-AddToggle(sellSection, "Auto Sell Filter Fruit", false, function(v) _G.AutoSellFruit = v end)
+local sellSettingSection = AddSection(sellPage, "💰 Auto Sell Settings")
+AddToggle(sellSettingSection, "Auto Sell All", false, function(v) _G.AutoSellAll = v end)
+AddToggle(sellSettingSection, "Auto Sell Filter Fruit", false, function(v) _G.AutoSellFruit = v end)
+AddDropdown(sellSettingSection, "Select Fruit to Sell", listFilter, function(v) _G.SellSelectedFruit = v end)
 
--- Automation Pets
-local petSection = AddSection(mainPage, "🐣 Automation Pets")
-AddDropdown(petSection, "Select Pet Egg Type", PetsList, function(v) _G.BuySelectedPet = v end)
-AddToggle(petSection, "Auto Buy Pet", false, function(v) _G.AutoBuyPet = v end)
+local rarityFilter = {"All", "Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic"}
+AddDropdown(sellSettingSection, "Rarity Filter", rarityFilter, function(v) _G.AutoSellFilter = v end)
 
--- TAB 3: AUTOMATICALLY
-local autoPage = CreateTab("Automatically")
-local autoMainSection = AddSection(autoPage, "⚙️ Auto Settings")
-AddToggle(autoMainSection, "Auto Collect All", false, function(v) _G.AutoCollectAllFruit = v end)
-AddToggle(autoMainSection, "Auto Sell All", false, function(v) _G.AutoSellAll = v end)
-AddToggle(autoMainSection, "Auto Plant All", false, function(v) _G.AutoPlantsAllSeeds = v end)
+-- TAB 3: BUY
+local buyPage = CreateTab("Buy")
 
--- TAB 4: INVENTORY
-local invPage = CreateTab("Inventory")
-local invSection = AddSection(invPage, "📦 Inventory Manager")
-local InfoLabel = Instance.new("TextLabel")
-InfoLabel.Size = UDim2.new(0, 380, 0, 60)
-InfoLabel.Position = UDim2.new(0, 10, 0, 5)
-InfoLabel.BackgroundColor3 = Color3.fromRGB(40, 30, 36)
-InfoLabel.Text = "Inventory Features\nComing Soon!"
-InfoLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-InfoLabel.TextSize = 12
-InfoLabel.Font = Enum.Font.SourceSans
-InfoLabel.TextYAlignment = Enum.TextYAlignment.Center
-InfoLabel.Parent = invSection
-Instance.new("UICorner", InfoLabel).CornerRadius = UDim.new(0, 4)
+local buySeedSection = AddSection(buyPage, "🌱 Auto Buy Seed")
+AddToggle(buySeedSection, "Auto Buy Seed", false, function(v) _G.AutoBuySeed = v end)
+AddDropdown(buySeedSection, "Select Seed", FruitsList, function(v) _G.SelectedSeed = v end)
 
--- TAB 5: SHOP
-local shopPage = CreateTab("Shop")
-local shopSection = AddSection(shopPage, "🏪 Shop Automation")
-AddDropdown(shopSection, "Select Pet Egg Type", PetsList, function(v) _G.BuySelectedPet = v end)
-AddToggle(shopSection, "Auto Buy Pet", false, function(v) _G.AutoBuyPet = v end)
+local buyGearSection = AddSection(buyPage, "🔧 Auto Buy Gear")
+AddToggle(buyGearSection, "Auto Buy Gear", false, function(v) _G.AutoBuyGear = v end)
+AddDropdown(buyGearSection, "Select Gear", GearsList, function(v) _G.SelectedGear = v end)
 
--- TAB 6: WEBHOOK
-local webhookPage = CreateTab("Webhook")
-local webhookSection = AddSection(webhookPage, "🔗 Discord Webhook")
-local WebhookInput = Instance.new("TextBox")
-WebhookInput.Size = UDim2.new(0, 380, 0, 30)
-WebhookInput.Position = UDim2.new(0, 10, 0, 5)
-WebhookInput.BackgroundColor3 = Color3.fromRGB(40, 30, 36)
-WebhookInput.PlaceholderText = "https://discord.com/api/webhooks/..."
-WebhookInput.Text = ""
-WebhookInput.TextColor3 = Color3.fromRGB(200, 200, 200)
-WebhookInput.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
-WebhookInput.Font = Enum.Font.SourceSans
-WebhookInput.TextSize = 12
-WebhookInput.Parent = webhookSection
-Instance.new("UICorner", WebhookInput).CornerRadius = UDim.new(0, 4)
-AddToggle(webhookSection, "Enable Webhook", false, function(v) _G.WebhookToggle = v end)
+local buyPetSection = AddSection(buyPage, "🐣 Auto Buy Pet")
+AddToggle(buyPetSection, "Auto Buy Pet", false, function(v) _G.AutoBuyPet = v end)
+AddDropdown(buyPetSection, "Select Pet", PetsList, function(v) _G.BuySelectedPet = v end)
+
+-- TAB 4: SETTINGS
+local settingsPage = CreateTab("Settings")
+
+local playerSection = AddSection(settingsPage, "⚙️ Player Settings")
+AddToggle(playerSection, "Walkspeed Boost", false, function(v) _G.WalkspeedToggle = v end)
+AddToggle(playerSection, "No Clip", false, function(v) _G.NoClipToggle = v end)
+AddToggle(playerSection, "Silent Mode", true, function(v) _G.SilentModeGlobal = v end)
 
 -- Select first tab
 if #tabs > 0 then
     tabs[1].Button:MouseButton1Click()
 end
 
--- Update canvas size periodically
+-- Update Canvas Size
 task.spawn(function()
     while task.wait(1) do
         for _, tab in pairs(tabs) do
@@ -807,5 +685,5 @@ task.spawn(function()
     end
 end)
 
-print("✅ Speed Hub X v6.2 - ANTI POHON LOADED!")
-print("📌 UI FIXED - 100% Tidak akan mengcollect pohon!")
+print("✅ Speed Hub X v7.0 LOADED!")
+print("📌 Fitur: Auto Collect (dengan filter berat KG), Auto Sell (dengan filter rarity), Auto Buy Seed, Auto Buy Gear, Auto Buy Pet")
