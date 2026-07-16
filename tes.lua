@@ -1,8 +1,8 @@
 -- =============================================================================
--- SPEED HUB X REMAKE - ULTRA STRICT FRUIT DETECTION v6.1 (FIXED UI)
+-- SPEED HUB X v6.2 - UI PRESISI (SESUAI GAMBAR)
 -- =============================================================================
 
--- 1. DATABASE DATA COMPLETE
+-- 1. DATABASE DATA
 local FruitsList = {
     "Carrot", "Strawberry", "Blueberry", "Tulip", "Tomato", "Bamboo", 
     "Corn", "Apple", "Mango", "Mushroom", "Banana", "Grape", "Acorn", 
@@ -39,7 +39,6 @@ _G.BuySelectedPet = "All"
 local Player = game:GetService("Players").LocalPlayer
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
 
 -- =============================================================================
 -- 4. ULTRA STRICT FRUIT DETECTION
@@ -347,7 +346,7 @@ task.spawn(function()
 end)
 
 -- =============================================================================
--- 6. UI GENERATOR - FIXED & STABLE
+-- 6. UI GENERATOR - PRESISI SESUAI GAMBAR
 -- =============================================================================
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "SpeedHubX_V6"
@@ -358,37 +357,37 @@ pcall(function() ScreenGui.Parent = guiParent end)
 
 -- Main Frame
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 480, 0, 420)
-MainFrame.Position = UDim2.new(0.5, -240, 0.5, -210)
-MainFrame.BackgroundColor3 = Color3.fromRGB(18, 13, 13)
-MainFrame.BorderSizePixel = 0
-MainFrame.BackgroundTransparency = 0
+MainFrame.Size = UDim2.new(0, 600, 0, 450)
+MainFrame.Position = UDim2.new(0.5, -300, 0.5, -225)
+MainFrame.BackgroundColor3 = Color3.fromRGB(20, 15, 18)
+MainFrame.BorderSizePixel = 1
+MainFrame.BorderColor3 = Color3.fromRGB(60, 40, 45)
 MainFrame.Active = true
 MainFrame.Draggable = true
 MainFrame.Parent = ScreenGui
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 6)
 
--- Top Bar
+-- Top Bar (Header)
 local TopBar = Instance.new("Frame")
-TopBar.Size = UDim2.new(1, 0, 0, 32)
-TopBar.BackgroundColor3 = Color3.fromRGB(30, 20, 20)
+TopBar.Size = UDim2.new(1, 0, 0, 35)
+TopBar.BackgroundColor3 = Color3.fromRGB(30, 20, 25)
 TopBar.BorderSizePixel = 0
 TopBar.Parent = MainFrame
 Instance.new("UICorner", TopBar).CornerRadius = UDim.new(0, 6)
 
-local TitleLabel = Instance.new("TextLabel")
-TitleLabel.Size = UDim2.new(1, -70, 1, 0)
-TitleLabel.Position = UDim2.new(0, 10, 0, 0)
-TitleLabel.Text = "Speed Hub X v6.1 - ANTI POHON"
-TitleLabel.TextColor3 = Color3.fromRGB(255, 70, 70)
-TitleLabel.TextSize = 14
-TitleLabel.Font = Enum.Font.SourceSansBold
-TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
-TitleLabel.BackgroundTransparency = 1
-TitleLabel.Parent = TopBar
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, -80, 1, 0)
+Title.Position = UDim2.new(0, 10, 0, 0)
+Title.Text = "Speed Hub X | Version 6.2 | discord.gg/speedhubx"
+Title.TextColor3 = Color3.fromRGB(255, 80, 80)
+Title.TextSize = 12
+Title.Font = Enum.Font.SourceSansBold
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.BackgroundTransparency = 1
+Title.Parent = TopBar
 
 local CloseBtn = Instance.new("TextButton")
-CloseBtn.Size = UDim2.new(0, 28, 0, 28)
+CloseBtn.Size = UDim2.new(0, 30, 0, 30)
 CloseBtn.Position = UDim2.new(1, -33, 0, 2)
 CloseBtn.BackgroundTransparency = 1
 CloseBtn.Text = "✕"
@@ -400,108 +399,202 @@ CloseBtn.MouseButton1Click:Connect(function()
     ScreenGui:Destroy() 
 end)
 
--- Tab Bar
-local TabBar = Instance.new("Frame")
-TabBar.Size = UDim2.new(1, 0, 0, 30)
-TabBar.Position = UDim2.new(0, 0, 0, 32)
-TabBar.BackgroundColor3 = Color3.fromRGB(25, 18, 18)
-TabBar.BorderSizePixel = 0
-TabBar.Parent = MainFrame
+-- SIDEBAR (KIRI)
+local Sidebar = Instance.new("ScrollingFrame")
+Sidebar.Size = UDim2.new(0, 160, 1, -35)
+Sidebar.Position = UDim2.new(0, 0, 0, 35)
+Sidebar.BackgroundColor3 = Color3.fromRGB(25, 18, 22)
+Sidebar.BorderSizePixel = 0
+Sidebar.CanvasSize = UDim2.new(0, 0, 0, 400)
+Sidebar.ScrollBarThickness = 0
+Sidebar.Parent = MainFrame
 
+local SidebarLayout = Instance.new("UIListLayout")
+SidebarLayout.Padding = UDim.new(0, 2)
+SidebarLayout.Parent = Sidebar
+
+-- Search Box
+local SearchBox = Instance.new("TextBox")
+SearchBox.Size = UDim2.new(1, -10, 0, 28)
+SearchBox.Position = UDim2.new(0, 5, 0, 5)
+SearchBox.BackgroundColor3 = Color3.fromRGB(40, 28, 35)
+SearchBox.BorderSizePixel = 0
+SearchBox.PlaceholderText = "🔍 Search"
+SearchBox.Text = ""
+SearchBox.TextColor3 = Color3.fromRGB(200, 200, 200)
+SearchBox.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
+SearchBox.Font = Enum.Font.SourceSans
+SearchBox.TextSize = 12
+SearchBox.Parent = Sidebar
+Instance.new("UICorner", SearchBox).CornerRadius = UDim.new(0, 4)
+
+-- Page Container (KANAN)
+local PageContainer = Instance.new("Frame")
+PageContainer.Size = UDim2.new(1, -160, 1, -35)
+PageContainer.Position = UDim2.new(0, 160, 0, 35)
+PageContainer.BackgroundTransparency = 1
+PageContainer.Parent = MainFrame
+
+-- Tab System
 local tabs = {}
 local currentTab = nil
 
-local function CreateTab(name)
+local function CreateTab(tabName, icon)
+    -- Sidebar Button
     local TabBtn = Instance.new("TextButton")
-    TabBtn.Size = UDim2.new(0, 80, 1, 0)
-    TabBtn.Position = UDim2.new(0, #tabs * 80, 0, 0)
-    TabBtn.BackgroundColor3 = Color3.fromRGB(35, 25, 25)
-    TabBtn.BorderSizePixel = 0
-    TabBtn.Text = name
-    TabBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+    TabBtn.Size = UDim2.new(1, -10, 0, 32)
+    TabBtn.BackgroundTransparency = 1
+    TabBtn.Text = "   " .. tabName
+    TabBtn.TextColor3 = Color3.fromRGB(180, 170, 175)
     TabBtn.Font = Enum.Font.SourceSans
-    TabBtn.TextSize = 12
-    TabBtn.Parent = TabBar
-    Instance.new("UICorner", TabBtn).CornerRadius = UDim.new(0, 0)
+    TabBtn.TextSize = 13
+    TabBtn.TextXAlignment = Enum.TextXAlignment.Left
+    TabBtn.Parent = Sidebar
+    Instance.new("UICorner", TabBtn).CornerRadius = UDim.new(0, 4)
     
-    -- Content Frame
-    local Content = Instance.new("ScrollingFrame")
-    Content.Size = UDim2.new(1, -10, 1, -75)
-    Content.Position = UDim2.new(0, 5, 0, 67)
-    Content.BackgroundTransparency = 1
-    Content.CanvasSize = UDim2.new(0, 0, 0, 0)
-    Content.ScrollBarThickness = 4
-    Content.ScrollBarImageColor3 = Color3.fromRGB(70, 35, 35)
-    Content.Visible = false
-    Content.Parent = MainFrame
+    -- Icon indicator
+    local Icon = Instance.new("TextLabel")
+    Icon.Size = UDim2.new(0, 20, 1, 0)
+    Icon.Position = UDim2.new(0, 5, 0, 0)
+    Icon.BackgroundTransparency = 1
+    Icon.Text = "•"
+    Icon.TextColor3 = Color3.fromRGB(255, 80, 80)
+    Icon.TextSize = 16
+    Icon.Visible = false
+    Icon.Parent = TabBtn
     
-    local layout = Instance.new("UIListLayout")
-    layout.Padding = UDim.new(0, 4)
-    layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-    layout.Parent = Content
+    -- Content Page
+    local Page = Instance.new("ScrollingFrame")
+    Page.Size = UDim2.new(1, -10, 1, -10)
+    Page.Position = UDim2.new(0, 5, 0, 5)
+    Page.BackgroundTransparency = 1
+    Page.BorderSizePixel = 0
+    Page.Visible = false
+    Page.CanvasSize = UDim2.new(0, 0, 0, 0)
+    Page.ScrollBarThickness = 3
+    Page.ScrollBarImageColor3 = Color3.fromRGB(70, 50, 55)
+    Page.Parent = PageContainer
     
+    local PageLayout = Instance.new("UIListLayout")
+    PageLayout.Padding = UDim.new(0, 5)
+    PageLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    PageLayout.Parent = Page
+    
+    -- Click handler
     TabBtn.MouseButton1Click:Connect(function()
         for _, tab in pairs(tabs) do
-            tab.Content.Visible = false
-            tab.Button.BackgroundColor3 = Color3.fromRGB(35, 25, 25)
-            tab.Button.TextColor3 = Color3.fromRGB(200, 200, 200)
+            tab.Page.Visible = false
+            tab.Button.BackgroundTransparency = 1
+            tab.Button.TextColor3 = Color3.fromRGB(180, 170, 175)
+            local icon = tab.Button:FindFirstChild("TextLabel")
+            if icon then icon.Visible = false end
         end
-        Content.Visible = true
-        TabBtn.BackgroundColor3 = Color3.fromRGB(55, 35, 35)
+        
+        Page.Visible = true
+        TabBtn.BackgroundTransparency = 0
+        TabBtn.BackgroundColor3 = Color3.fromRGB(45, 30, 38)
         TabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        currentTab = name
+        Icon.Visible = true
+        currentTab = tabName
     end)
     
-    table.insert(tabs, {Button = TabBtn, Content = Content, Layout = layout})
-    return Content
+    table.insert(tabs, {Button = TabBtn, Page = Page, Layout = PageLayout, Name = tabName})
+    return Page
 end
 
--- Helper Functions
+-- UI Helper Functions
 local function AddSection(parent, title)
     local Section = Instance.new("Frame")
-    Section.Size = UDim2.new(0, 450, 0, 35)
-    Section.BackgroundColor3 = Color3.fromRGB(35, 25, 25)
+    Section.Size = UDim2.new(0, 410, 0, 0)
+    Section.BackgroundColor3 = Color3.fromRGB(30, 22, 27)
     Section.BorderSizePixel = 0
     Section.ClipsDescendants = true
     Section.Parent = parent
     Instance.new("UICorner", Section).CornerRadius = UDim.new(0, 4)
     
-    local Header = Instance.new("TextLabel")
-    Header.Size = UDim2.new(1, 0, 1, 0)
-    Header.BackgroundTransparency = 1
+    local Header = Instance.new("TextButton")
+    Header.Size = UDim2.new(1, 0, 0, 32)
+    Header.BackgroundColor3 = Color3.fromRGB(38, 28, 34)
+    Header.BorderSizePixel = 0
     Header.Text = "  " .. title
-    Header.TextColor3 = Color3.fromRGB(230, 230, 230)
+    Header.TextColor3 = Color3.fromRGB(230, 220, 225)
     Header.Font = Enum.Font.SourceSansBold
-    Header.TextSize = 13
+    Header.TextSize = 12
     Header.TextXAlignment = Enum.TextXAlignment.Left
     Header.Parent = Section
+    Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 4)
     
-    return Section
+    local Arrow = Instance.new("TextLabel")
+    Arrow.Size = UDim2.new(0, 30, 1, 0)
+    Arrow.Position = UDim2.new(1, -35, 0, 0)
+    Arrow.BackgroundTransparency = 1
+    Arrow.Text = "▼"
+    Arrow.TextColor3 = Color3.fromRGB(180, 170, 175)
+    Arrow.Font = Enum.Font.SourceSansBold
+    Arrow.TextSize = 12
+    Arrow.Parent = Header
+    
+    local Content = Instance.new("Frame")
+    Content.Size = UDim2.new(1, 0, 0, 0)
+    Content.BackgroundTransparency = 1
+    Content.Parent = Section
+    
+    local ContentLayout = Instance.new("UIListLayout")
+    ContentLayout.Padding = UDim.new(0, 3)
+    ContentLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    ContentLayout.Parent = Content
+    Instance.new("UIPadding", Content).PaddingTop = UDim.new(0, 3)
+    
+    local isOpen = true
+    
+    local function UpdateSize()
+        if isOpen then
+            Section.Size = UDim2.new(0, 410, 0, 32 + ContentLayout.AbsoluteContentSize.Y + 5)
+        else
+            Section.Size = UDim2.new(0, 410, 0, 32)
+        end
+        
+        local pLayout = parent:FindFirstChildOfClass("UIListLayout")
+        if pLayout then
+            parent.CanvasSize = UDim2.new(0, 0, 0, pLayout.AbsoluteContentSize.Y + 10)
+        end
+    end
+    
+    Header.MouseButton1Click:Connect(function()
+        isOpen = not isOpen
+        Arrow.Text = isOpen and "▼" or "▶"
+        UpdateSize()
+    end)
+    
+    task.wait(0.05)
+    UpdateSize()
+    
+    return Content
 end
 
 local function AddToggle(parent, text, default, callback)
     local Frame = Instance.new("Frame")
-    Frame.Size = UDim2.new(0, 450, 0, 30)
-    Frame.BackgroundColor3 = Color3.fromRGB(28, 20, 20)
+    Frame.Size = UDim2.new(0, 395, 0, 30)
+    Frame.BackgroundColor3 = Color3.fromRGB(40, 30, 36)
     Frame.BorderSizePixel = 0
     Frame.Parent = parent
     Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 3)
     
     local Label = Instance.new("TextLabel")
-    Label.Size = UDim2.new(0, 340, 1, 0)
+    Label.Size = UDim2.new(0, 280, 1, 0)
     Label.Position = UDim2.new(0, 8, 0, 0)
     Label.BackgroundTransparency = 1
     Label.Text = text
-    Label.TextColor3 = Color3.fromRGB(210, 210, 210)
+    Label.TextColor3 = Color3.fromRGB(210, 200, 205)
     Label.Font = Enum.Font.SourceSans
     Label.TextSize = 12
     Label.TextXAlignment = Enum.TextXAlignment.Left
     Label.Parent = Frame
     
     local Btn = Instance.new("TextButton")
-    Btn.Size = UDim2.new(0, 48, 0, 20)
-    Btn.Position = UDim2.new(1, -56, 0.5, -10)
-    Btn.BackgroundColor3 = default and Color3.fromRGB(200, 50, 50) or Color3.fromRGB(60, 45, 45)
+    Btn.Size = UDim2.new(0, 50, 0, 20)
+    Btn.Position = UDim2.new(1, -58, 0.5, -10)
+    Btn.BackgroundColor3 = default and Color3.fromRGB(200, 50, 50) or Color3.fromRGB(60, 45, 50)
     Btn.Text = default and "ON" or "OFF"
     Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
     Btn.Font = Enum.Font.SourceSansBold
@@ -512,7 +605,7 @@ local function AddToggle(parent, text, default, callback)
     local state = default
     Btn.MouseButton1Click:Connect(function()
         state = not state
-        Btn.BackgroundColor3 = state and Color3.fromRGB(200, 50, 50) or Color3.fromRGB(60, 45, 45)
+        Btn.BackgroundColor3 = state and Color3.fromRGB(200, 50, 50) or Color3.fromRGB(60, 45, 50)
         Btn.Text = state and "ON" or "OFF"
         if callback then callback(state) end
     end)
@@ -520,19 +613,19 @@ end
 
 local function AddDropdown(parent, text, options, callback)
     local Frame = Instance.new("Frame")
-    Frame.Size = UDim2.new(0, 450, 0, 30)
-    Frame.BackgroundColor3 = Color3.fromRGB(28, 20, 20)
+    Frame.Size = UDim2.new(0, 395, 0, 30)
+    Frame.BackgroundColor3 = Color3.fromRGB(40, 30, 36)
     Frame.BorderSizePixel = 0
     Frame.ClipsDescendants = true
     Frame.Parent = parent
     Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 3)
     
     local Label = Instance.new("TextLabel")
-    Label.Size = UDim2.new(0, 200, 1, 0)
+    Label.Size = UDim2.new(0, 160, 1, 0)
     Label.Position = UDim2.new(0, 8, 0, 0)
     Label.BackgroundTransparency = 1
     Label.Text = text
-    Label.TextColor3 = Color3.fromRGB(210, 210, 210)
+    Label.TextColor3 = Color3.fromRGB(210, 200, 205)
     Label.Font = Enum.Font.SourceSans
     Label.TextSize = 12
     Label.TextXAlignment = Enum.TextXAlignment.Left
@@ -541,7 +634,7 @@ local function AddDropdown(parent, text, options, callback)
     local DropBtn = Instance.new("TextButton")
     DropBtn.Size = UDim2.new(0, 160, 0, 22)
     DropBtn.Position = UDim2.new(1, -168, 0.5, -11)
-    DropBtn.BackgroundColor3 = Color3.fromRGB(45, 35, 35)
+    DropBtn.BackgroundColor3 = Color3.fromRGB(50, 38, 45)
     DropBtn.Text = options[1] or "Select"
     DropBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     DropBtn.Font = Enum.Font.SourceSans
@@ -551,9 +644,9 @@ local function AddDropdown(parent, text, options, callback)
     
     local isOpen = false
     local List = Instance.new("ScrollingFrame")
-    List.Size = UDim2.new(0, 430, 0, 80)
+    List.Size = UDim2.new(0, 378, 0, 80)
     List.Position = UDim2.new(0, 8, 0, 30)
-    List.BackgroundColor3 = Color3.fromRGB(35, 25, 25)
+    List.BackgroundColor3 = Color3.fromRGB(35, 25, 30)
     List.BorderSizePixel = 0
     List.CanvasSize = UDim2.new(0, 0, 0, #options * 22)
     List.ScrollBarThickness = 3
@@ -566,13 +659,18 @@ local function AddDropdown(parent, text, options, callback)
     DropBtn.MouseButton1Click:Connect(function()
         isOpen = not isOpen
         List.Visible = isOpen
-        Frame.Size = isOpen and UDim2.new(0, 450, 0, 115) or UDim2.new(0, 450, 0, 30)
+        Frame.Size = isOpen and UDim2.new(0, 395, 0, 115) or UDim2.new(0, 395, 0, 30)
+        
+        local layout = parent:FindFirstChildOfClass("UIListLayout")
+        if layout then
+            parent.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 10)
+        end
     end)
     
     for _, opt in pairs(options) do
         local OptBtn = Instance.new("TextButton")
         OptBtn.Size = UDim2.new(1, 0, 0, 20)
-        OptBtn.BackgroundColor3 = Color3.fromRGB(40, 30, 30)
+        OptBtn.BackgroundColor3 = Color3.fromRGB(40, 30, 36)
         OptBtn.BorderSizePixel = 0
         OptBtn.Text = opt
         OptBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
@@ -584,72 +682,112 @@ local function AddDropdown(parent, text, options, callback)
             DropBtn.Text = opt
             isOpen = false
             List.Visible = false
-            Frame.Size = UDim2.new(0, 450, 0, 30)
+            Frame.Size = UDim2.new(0, 395, 0, 30)
             if callback then callback(opt) end
+            
+            local layout = parent:FindFirstChildOfClass("UIListLayout")
+            if layout then
+                parent.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 10)
+            end
         end)
     end
 end
 
 -- =============================================================================
--- 7. BUILD UI TABS
+-- 7. BUILD TABS - SESUAI GAMBAR
 -- =============================================================================
 
 -- TAB 1: HOME
-local homeTab = CreateTab("Home")
-local homeSection = AddSection(homeTab, "⚙️ Player Settings")
+local homePage = CreateTab("Home")
+local homeSection = AddSection(homePage, "⚙️ Player Settings")
 AddToggle(homeSection, "Walkspeed Boost", false, function(v) _G.WalkspeedToggle = v end)
 AddToggle(homeSection, "No Clip", false, function(v) _G.NoClipToggle = v end)
 AddToggle(homeSection, "Silent Mode", true, function(v) _G.SilentModeGlobal = v end)
 
--- TAB 2: COLLECT
-local collectTab = CreateTab("Collect")
-local collectSection = AddSection(collectTab, "🍓 Auto Collect")
+-- TAB 2: MAIN
+local mainPage = CreateTab("Main")
+local mainSection = AddSection(mainPage, "⚙️ Automation Main")
+
+-- Teleport Manager
+local teleportSection = AddSection(mainPage, "📌 Teleport Manager")
+AddToggle(teleportSection, "Auto Teleport to Fruit", false, function(v) end)
+
+-- Stack Farm Manager
+local stackSection = AddSection(mainPage, "📦 Stack Farm Manager")
+AddToggle(stackSection, "Stack Farm Mode", false, function(v) end)
+
+-- Automation Plants
+local plantSection = AddSection(mainPage, "🌱 Automation Plants")
 local listFilter = {"All"}
 for _, f in pairs(FruitsList) do 
     table.insert(listFilter, f) 
 end
-AddDropdown(collectSection, "Fruit Filter", listFilter, function(v) _G.CollectSelectedFruit = v end)
+AddDropdown(plantSection, "Select Seeds", FruitsList, function(v) _G.SelectedSeed = v end)
+AddToggle(plantSection, "Auto Plants Selected Seed", false, function(v) _G.AutoPlantsSeed = v end)
+AddToggle(plantSection, "Auto Plants All Seeds", false, function(v) _G.AutoPlantsAllSeeds = v end)
+
+-- Automation Collection
+local collectSection = AddSection(mainPage, "🍓 Automation Collection")
+AddDropdown(collectSection, "Select Fruit Filter", listFilter, function(v) _G.CollectSelectedFruit = v end)
 AddToggle(collectSection, "Auto Collect Filter Fruit", false, function(v) _G.AutoCollectFruit = v end)
-AddToggle(collectSection, "Auto Collect ALL Fruit", false, function(v) _G.AutoCollectAllFruit = v end)
+AddToggle(collectSection, "Auto Collect All Fruit", false, function(v) _G.AutoCollectAllFruit = v end)
 
--- TAB 3: PLANT
-local plantTab = CreateTab("Plant")
-local plantSection = AddSection(plantTab, "🌱 Auto Plant")
-AddDropdown(plantSection, "Select Seed", FruitsList, function(v) _G.SelectedSeed = v end)
-AddToggle(plantSection, "Auto Plant Selected Seed", false, function(v) _G.AutoPlantsSeed = v end)
-AddToggle(plantSection, "Auto Plant All Seeds", false, function(v) _G.AutoPlantsAllSeeds = v end)
+-- Automation Steal
+local stealSection = AddSection(mainPage, "🎯 Automation Steal")
+AddToggle(stealSection, "Auto Steal Mode", false, function(v) end)
 
--- TAB 4: SELL
-local sellTab = CreateTab("Sell")
-local sellSection = AddSection(sellTab, "💰 Auto Sell")
-AddDropdown(sellSection, "Sell Filter", listFilter, function(v) _G.SellSelectedFruit = v end)
+-- Automation Sell
+local sellSection = AddSection(mainPage, "💰 Automation Sell")
+AddDropdown(sellSection, "Select Fruit to Sell", listFilter, function(v) _G.SellSelectedFruit = v end)
 AddToggle(sellSection, "Auto Sell All", false, function(v) _G.AutoSellAll = v end)
 AddToggle(sellSection, "Auto Sell Filter Fruit", false, function(v) _G.AutoSellFruit = v end)
 
--- TAB 5: PET
-local petTab = CreateTab("Pet")
-local petSection = AddSection(petTab, "🐣 Auto Pet")
-AddDropdown(petSection, "Pet Type", PetsList, function(v) _G.BuySelectedPet = v end)
+-- Automation Pets
+local petSection = AddSection(mainPage, "🐣 Automation Pets")
+AddDropdown(petSection, "Select Pet Egg Type", PetsList, function(v) _G.BuySelectedPet = v end)
 AddToggle(petSection, "Auto Buy Pet", false, function(v) _G.AutoBuyPet = v end)
 
--- Select first tab by default
-if #tabs > 0 then
-    tabs[1].Button:MouseButton1Click()
-end
+-- TAB 3: AUTOMATICALLY
+local autoPage = CreateTab("Automatically")
+local autoMainSection = AddSection(autoPage, "⚙️ Auto Settings")
+AddToggle(autoMainSection, "Auto Collect All", false, function(v) _G.AutoCollectAllFruit = v end)
+AddToggle(autoMainSection, "Auto Sell All", false, function(v) _G.AutoSellAll = v end)
+AddToggle(autoMainSection, "Auto Plant All", false, function(v) _G.AutoPlantsAllSeeds = v end)
 
--- Update CanvasSize for each tab
-task.spawn(function()
-    while task.wait(1) do
-        for _, tab in pairs(tabs) do
-            local content = tab.Content
-            local layout = content:FindFirstChildOfClass("UIListLayout")
-            if layout then
-                content.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 10)
-            end
-        end
-    end
-end)
+-- TAB 4: INVENTORY
+local invPage = CreateTab("Inventory")
+local invSection = AddSection(invPage, "📦 Inventory Manager")
+local InfoLabel = Instance.new("TextLabel")
+InfoLabel.Size = UDim2.new(0, 380, 0, 60)
+InfoLabel.Position = UDim2.new(0, 10, 0, 5)
+InfoLabel.BackgroundColor3 = Color3.fromRGB(40, 30, 36)
+InfoLabel.Text = "Inventory Features\nComing Soon!"
+InfoLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+InfoLabel.TextSize = 12
+InfoLabel.Font = Enum.Font.SourceSans
+InfoLabel.TextYAlignment = Enum.TextYAlignment.Center
+InfoLabel.Parent = invSection
+Instance.new("UICorner", InfoLabel).CornerRadius = UDim.new(0, 4)
 
-print("✅ Speed Hub X v6.1 - ANTI POHON Loaded!")
-print("📌 100% Tidak akan mengcollect pohon!")
-print("📌 UI telah diperbaiki dan stabil!")
+-- TAB 5: SHOP
+local shopPage = CreateTab("Shop")
+local shopSection = AddSection(shopPage, "🏪 Shop Automation")
+AddDropdown(shopSection, "Select Pet Egg Type", PetsList, function(v) _G.BuySelectedPet = v end)
+AddToggle(shopSection, "Auto Buy Pet", false, function(v) _G.AutoBuyPet = v end)
+
+-- TAB 6: WEBHOOK
+local webhookPage = CreateTab("Webhook")
+local webhookSection = AddSection(webhookPage, "🔗 Discord Webhook")
+local WebhookInput = Instance.new("TextBox")
+WebhookInput.Size = UDim2.new(0, 380, 0, 30)
+WebhookInput.Position = UDim2.new(0, 10, 0, 5)
+WebhookInput.BackgroundColor3 = Color3.fromRGB(40, 30, 36)
+WebhookInput.PlaceholderText = "https://discord.com/api/webhooks/..."
+WebhookInput.Text = ""
+WebhookInput.TextColor3 = Color3.fromRGB(200, 200, 200)
+WebhookInput.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
+WebhookInput.Font = Enum.Font.SourceSans
+WebhookInput.TextSize = 12
+WebhookInput.Parent = webhookSection
+Instance.new("UICorner", WebhookInput).CornerRadius = UDim.new(0, 4)
+AddToggle(webhookSection
