@@ -1,5 +1,5 @@
 -- =============================================================================
--- SPEED HUB X REMAKE - STRICT SILENT FRUIT-ONLY (ANTI POHON EDITION) v5.2
+-- SPEED HUB X REMAKE - STRICT SILENT FRUIT-ONLY (ANTI POHON EDITION) v5.2.1
 -- =============================================================================
 
 -- 1. DATABASE DATA COMPLETE
@@ -15,6 +15,7 @@ _G.NoClipToggle = false
 _G.CustomSpeed = 50
 _G.TeleportMode = "Tween Teleport"
 
+-- State Automation
 _G.AutoPlantsSeed = false
 _G.AutoPlantsAllSeeds = false
 _G.AutoCollectFruit = false
@@ -22,14 +23,16 @@ _G.AutoCollectAllFruit = false
 _G.AutoSellAll = false
 _G.AutoSellFruit = false
 _G.AutoBuyPet = false
-_G.SilentModeGlobal = true 
+_G.SilentModeGlobal = true
 
+-- Variabel Filter
 _G.SelectedSeed = "Carrot"
 _G.SelectedSprinkler = "All"
 _G.CollectSelectedFruit = "All"
 _G.SellSelectedFruit = "All"
 _G.BuySelectedPet = "All"
 
+-- Webhook Settings
 _G.WebhookURL = ""
 _G.WebhookToggle = false
 
@@ -41,7 +44,7 @@ local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 
 -- =============================================================================
--- 4. IMPROVED FRUIT DETECTION
+-- 4. IMPROVED FRUIT DETECTION (ANTI-POHON SUPER KETAT)
 -- =============================================================================
 local function isRealFruitOnly(item)
     if not item or not item:IsA("BasePart") then return false end
@@ -50,9 +53,12 @@ local function isRealFruitOnly(item)
     local size = item.Size
     local parentName = item.Parent and item.Parent.Name:lower() or ""
     
-    local blacklistKeywords = {"tree", "pohon", "trunk", "leaf", "stem", "branch", "wood", "log", 
-                               "mail", "box", "pot", "plot", "soil", "ground", "terrain", "wall", 
-                               "floor", "roof", "door", "window", "fence", "gate", "sign", "board"}
+    -- Blacklist ketat - kata kunci objek yang pasti bukan buah
+    local blacklistKeywords = {
+        "tree", "pohon", "trunk", "leaf", "leaves", "stem", "branch", "wood", "log", 
+        "mail", "box", "pot", "plot", "soil", "ground", "terrain", "wall", "rimbun",
+        "floor", "roof", "door", "window", "fence", "gate", "sign", "board", "kayu", "batang"
+    }
     
     for _, keyword in pairs(blacklistKeywords) do
         if string.find(name, keyword) or string.find(parentName, keyword) then
@@ -60,19 +66,25 @@ local function isRealFruitOnly(item)
         end
     end
     
-    if size.Y > 5 or size.X > 5 or size.Z > 5 then
+    -- Validasi Ukuran: Buah asli di Roblox sangat jarang berukuran besar.
+    -- Kita cek total volumenya (lebar x tinggi x panjang). Jika lebih dari 30 stud kubik, dipastikan itu pohon/daun.
+    local volume = size.X * size.Y * size.Z
+    if volume > 30 or size.X > 3.5 or size.Y > 3.5 or size.Z > 3.5 then
         return false
     end
     
+    -- Cek kecocokan nama dengan daftar buah resmi
     for _, fruit in pairs(FruitsList) do
         if string.find(name, fruit:lower()) then
             return true
         end
     end
     
+    -- Fallback detection untuk objek buah generik
     if string.find(name, "fruit") or string.find(name, "berry") or 
        string.find(name, "apple") or string.find(name, "melon") or
-       string.find(name, "pear") or string.find(name, "peach") then
+       string.find(name, "pear") or string.find(name, "peach") or
+       string.find(name, "harvest") then
         return true
     end
     
@@ -80,12 +92,13 @@ local function isRealFruitOnly(item)
 end
 
 -- =============================================================================
--- 5. CORE LOGIC ENGINE
+-- 5. CORE LOGIC ENGINE (IMPROVED LOOPS)
 -- =============================================================================
 
--- 5.1 Walkspeed & NoClip
+-- 5.1 Walkspeed & NoClip Loop
 task.spawn(function()
-    RunService.Heartbeat:Connect(function()
+    local heartbeat = RunService.Heartbeat
+    heartbeat:Connect(function()
         pcall(function()
             local character = Player.Character
             if not character then return end
@@ -108,7 +121,7 @@ task.spawn(function()
     end)
 end)
 
--- 5.2 Auto Collect & Harvest
+-- 5.2 Auto Collect & Harvest (IMPROVED - Hanya Buah)
 task.spawn(function()
     while task.wait(0.2) do
         if not (_G.AutoCollectFruit or _G.AutoCollectAllFruit) then 
@@ -128,6 +141,7 @@ task.spawn(function()
             for _, obj in pairs(Workspace:GetDescendants()) do
                 if not (_G.AutoCollectFruit or _G.AutoCollectAllFruit) then break end
                 
+                -- Cek TouchTransmitter (untuk pickup berbasis touch)
                 if obj:IsA("TouchTransmitter") then
                     local item = obj.Parent
                     if isRealFruitOnly(item) then
@@ -140,23 +154,21 @@ task.spawn(function()
                             collectedFruits[item] = true
                             
                             if _G.SilentModeGlobal then
-                                for i = 1, 3 do
-                                    firetouchinterest(hrp, item, 0)
-                                    task.wait(0.02)
-                                    firetouchinterest(hrp, item, 1)
-                                    task.wait(0.02)
-                                end
+                                firetouchinterest(hrp, item, 0)
+                                task.wait(0.01)
+                                firetouchinterest(hrp, item, 1)
                             else
                                 hrp.CFrame = item.CFrame + Vector3.new(0, 2, 0)
                                 task.wait(0.05)
                                 firetouchinterest(hrp, item, 0)
-                                task.wait(0.05)
+                                task.wait(0.01)
                                 firetouchinterest(hrp, item, 1)
                             end
                         end
                     end
                 end
                 
+                -- Cek ProximityPrompt (untuk harvest/interact)
                 if obj:IsA("ProximityPrompt") then
                     local prompt = obj
                     local item = prompt.Parent
@@ -164,10 +176,12 @@ task.spawn(function()
                     local promptText = (prompt.ObjectText or "") .. (prompt.ActionText or "")
                     promptText = promptText:lower()
                     
+                    -- Skip total kalau prompt berurusan dengan penebangan/pohon
                     if string.find(promptText, "chop") or 
                        string.find(promptText, "cut") or 
                        string.find(promptText, "tree") or
-                       string.find(promptText, "pohon") then
+                       string.find(promptText, "pohon") or
+                       string.find(promptText, "wood") then
                         continue
                     end
                     
@@ -184,8 +198,6 @@ task.spawn(function()
                         if isMatch and prompt.Enabled then
                             if _G.SilentModeGlobal then
                                 fireproximityprompt(prompt)
-                                task.wait(0.05)
-                                fireproximityprompt(prompt)
                             else
                                 hrp.CFrame = item.CFrame + Vector3.new(0, 1, 0)
                                 task.wait(0.1)
@@ -199,7 +211,7 @@ task.spawn(function()
     end
 end)
 
--- 5.3 Auto Plants
+-- 5.3 Auto Plants Seed (IMPROVED)
 task.spawn(function()
     while task.wait(0.5) do
         if not (_G.AutoPlantsSeed or _G.AutoPlantsAllSeeds) then 
@@ -214,8 +226,6 @@ task.spawn(function()
             local hrp = char:FindFirstChild("HumanoidRootPart")
             if not hrp then return end
             
-            local plantingPrompts = {}
-            
             for _, obj in pairs(Workspace:GetDescendants()) do
                 if not (_G.AutoPlantsSeed or _G.AutoPlantsAllSeeds) then break end
                 
@@ -229,21 +239,16 @@ task.spawn(function()
                        string.find(promptText, "soil") or
                        string.find(promptText, "garden") then
                         
-                        table.insert(plantingPrompts, obj)
-                    end
-                end
-            end
-            
-            for _, prompt in pairs(plantingPrompts) do
-                if _G.SilentModeGlobal then
-                    fireproximityprompt(prompt)
-                    task.wait(0.05)
-                else
-                    local parent = prompt.Parent
-                    if parent and parent:IsA("BasePart") then
-                        hrp.CFrame = parent.CFrame + Vector3.new(0, 1, 0)
-                        task.wait(0.1)
-                        fireproximityprompt(prompt)
+                        if _G.SilentModeGlobal then
+                            fireproximityprompt(obj)
+                        else
+                            local parent = obj.Parent
+                            if parent and parent:IsA("BasePart") then
+                                hrp.CFrame = parent.CFrame + Vector3.new(0, 1, 0)
+                                task.wait(0.1)
+                                fireproximityprompt(obj)
+                            end
+                        end
                     end
                 end
             end
@@ -251,9 +256,9 @@ task.spawn(function()
     end
 end)
 
--- 5.4 Auto Sell
+-- 5.4 Auto Sell (IMPROVED)
 task.spawn(function()
-    while task.wait(0.5) do
+    while task.wait(1) do
         if not (_G.AutoSellAll or _G.AutoSellFruit) then 
             task.wait(0.5)
             continue 
@@ -279,9 +284,9 @@ task.spawn(function()
     end
 end)
 
--- 5.5 Auto Buy Pet
+-- 5.5 Auto Buy Pet (IMPROVED)
 task.spawn(function()
-    while task.wait(1) do
+    while task.wait(1.5) do
         if not _G.AutoBuyPet then 
             task.wait(0.5)
             continue 
@@ -308,10 +313,10 @@ task.spawn(function()
 end)
 
 -- =============================================================================
--- 6. UI GENERATOR
+-- 6. UI GENERATOR (IMPROVED)
 -- =============================================================================
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "SpeedHubX_V5.2"
+ScreenGui.Name = "SpeedHubX_V5.2.1"
 ScreenGui.ResetOnSpawn = false
 
 local guiParent = nil
@@ -322,7 +327,6 @@ elseif Player:FindFirstChild("PlayerGui") then
 else
     guiParent = Player:WaitForChild("PlayerGui")
 end
-
 pcall(function() ScreenGui.Parent = guiParent end)
 
 -- Main Frame
@@ -336,6 +340,17 @@ MainFrame.Draggable = true
 MainFrame.Parent = ScreenGui
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
 
+-- Shadow
+local Shadow = Instance.new("Frame")
+Shadow.Size = UDim2.new(1, 0, 1, 0)
+Shadow.Position = UDim2.new(0, 3, 0, 3)
+Shadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+Shadow.BackgroundTransparency = 0.5
+Shadow.BorderSizePixel = 0
+Shadow.ZIndex = 0
+Shadow.Parent = MainFrame
+Instance.new("UICorner", Shadow).CornerRadius = UDim.new(0, 8)
+
 -- Top Bar
 local TopBar = Instance.new("Frame")
 TopBar.Size = UDim2.new(1, 0, 0, 40)
@@ -347,13 +362,24 @@ Instance.new("UICorner", TopBar).CornerRadius = UDim.new(0, 8)
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, -100, 1, 0)
 Title.Position = UDim2.new(0, 15, 0, 0)
-Title.Text = "Speed Hub X | v5.2 COMPLETE"
+Title.Text = "Speed Hub X | v5.2.1 FIXED"
 Title.TextColor3 = Color3.fromRGB(225, 65, 65)
 Title.TextSize = 14
 Title.Font = Enum.Font.SourceSansBold
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.BackgroundTransparency = 1
 Title.Parent = TopBar
+
+local StatusLabel = Instance.new("TextLabel")
+StatusLabel.Size = UDim2.new(0, 150, 1, 0)
+StatusLabel.Position = UDim2.new(1, -160, 0, 0)
+StatusLabel.Text = "● ONLINE"
+StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+StatusLabel.TextSize = 11
+StatusLabel.Font = Enum.Font.SourceSans
+StatusLabel.TextXAlignment = Enum.TextXAlignment.Right
+StatusLabel.BackgroundTransparency = 1
+StatusLabel.Parent = TopBar
 
 local CloseBtn = Instance.new("TextButton")
 CloseBtn.Size = UDim2.new(0, 30, 0, 30)
@@ -364,9 +390,18 @@ CloseBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
 CloseBtn.Font = Enum.Font.SourceSansBold
 CloseBtn.TextSize = 16
 CloseBtn.Parent = TopBar
-CloseBtn.MouseButton1Click:Connect(function() 
-    ScreenGui:Destroy() 
-end)
+CloseBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
+
+local MinBtn = Instance.new("TextButton")
+MinBtn.Size = UDim2.new(0, 30, 0, 30)
+MinBtn.Position = UDim2.new(1, -70, 0, 5)
+MinBtn.BackgroundTransparency = 1
+MinBtn.Text = "−"
+MinBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+MinBtn.Font = Enum.Font.SourceSansBold
+MinBtn.TextSize = 16
+MinBtn.Parent = TopBar
+MinBtn.MouseButton1Click:Connect(function() MainFrame.Visible = not MainFrame.Visible end)
 
 -- Sidebar
 local Sidebar = Instance.new("ScrollingFrame")
@@ -393,7 +428,7 @@ local function CreatePage(pageName)
     Page.BackgroundTransparency = 1
     Page.BorderSizePixel = 0
     Page.Visible = false
-    Page.CanvasSize = UDim2.new(0, 0, 0, 1500)
+    Page.CanvasSize = UDim2.new(0, 0, 0, 1200)
     Page.ScrollBarThickness = 3
     Page.ScrollBarImageColor3 = Color3.fromRGB(70, 35, 35)
     Page.Parent = PageContainer
@@ -426,9 +461,7 @@ local function CreatePage(pageName)
     Icon.Parent = TabBtn
     
     TabBtn.MouseButton1Click:Connect(function()
-        for _, p in pairs(pages) do 
-            p.Visible = false 
-        end
+        for _, p in pairs(pages) do p.Visible = false end
         for _, btn in pairs(Sidebar:GetChildren()) do
             if btn:IsA("TextButton") then
                 btn.BackgroundTransparency = 1
@@ -509,8 +542,7 @@ function UI:AddSection(page, sectionTitle)
     end
     
     Header.MouseButton1Click:Connect(toggleContent)
-    
-    task.wait(0.1)
+    task.wait(0.05)
     toggleContent()
     
     return Content
@@ -682,7 +714,7 @@ function UI:AddTextBox(section, text, placeholder, callback)
 end
 
 -- =============================================================================
--- 7. INITIALIZE ALL TABS
+-- 7. INITIALIZE ALL TABS & REGISTER FEATURES
 -- =============================================================================
 CreatePage("Home")
 CreatePage("Main")
@@ -690,6 +722,7 @@ CreatePage("Automatically")
 CreatePage("Shop")
 CreatePage("Misc")
 
+-- Set default page
 pages["Home"].Visible = true
 for _, btn in pairs(Sidebar:GetChildren()) do
     if btn:IsA("TextButton") and btn.Text:find("Home") then
@@ -701,87 +734,27 @@ for _, btn in pairs(Sidebar:GetChildren()) do
     end
 end
 
--- HOME TAB
+-- --- TAB: HOME ---
 local PlayerSec = UI:AddSection("Home", "⛏️ Local Player Manager")
-UI:AddTextBox(PlayerSec, "Custom Speed", "50", function(v) 
-    _G.CustomSpeed = tonumber(v) or 50 
-end)
-UI:AddToggle(PlayerSec, "Enable Walkspeed", false, function(v) 
-    _G.WalkspeedToggle = v 
-end)
-UI:AddToggle(PlayerSec, "No Clip", false, function(v) 
-    _G.NoClipToggle = v 
-end)
+UI:AddTextBox(PlayerSec, "Custom Speed", "50", function(v) _G.CustomSpeed = tonumber(v) or 50 end)
+UI:AddToggle(PlayerSec, "Enable Walkspeed", false, function(v) _G.WalkspeedToggle = v end)
+UI:AddToggle(PlayerSec, "No Clip", false, function(v) _G.NoClipToggle = v end)
 
 local ConfigSec = UI:AddSection("Home", "⚙️ Engine Mode")
-UI:AddToggle(ConfigSec, "Silent Mode (Diem di Tempat)", true, function(v) 
-    _G.SilentModeGlobal = v 
-end)
+UI:AddToggle(ConfigSec, "Silent Mode (Diem di Tempat)", true, function(v) _G.SilentModeGlobal = v end)
 
--- MAIN TAB
+-- --- TAB: MAIN ---
 local PlantsSec = UI:AddSection("Main", "🌱 Auto Plants")
-UI:AddDropdown(PlantsSec, "Select Seeds", FruitsList, function(v) 
-    _G.SelectedSeed = v 
-end)
-UI:AddDropdown(PlantsSec, "Select Sprinkler", GearsList, function(v) 
-    _G.SelectedSprinkler = v 
-end)
-UI:AddToggle(PlantsSec, "Auto Plants Selected Seed", false, function(v) 
-    _G.AutoPlantsSeed = v 
-end)
-UI:AddToggle(PlantsSec, "Auto Plants All Seeds", false, function(v) 
-    _G.AutoPlantsAllSeeds = v 
-end)
+UI:AddDropdown(PlantsSec, "Select Seeds", FruitsList, function(v) _G.SelectedSeed = v end)
+UI:AddDropdown(PlantsSec, "Select Sprinkler", GearsList, function(v) _G.SelectedSprinkler = v end)
+UI:AddToggle(PlantsSec, "Auto Plants Selected Seed", false, function(v) _G.AutoPlantsSeed = v v end)
+UI:AddToggle(PlantsSec, "Auto Plants All Seeds", false, function(v) _G.AutoPlantsAllSeeds = v end)
 
 local CollectSec = UI:AddSection("Main", "🍓 Auto Collect")
 local listFilter = {"All"}
-for _, f in pairs(FruitsList) do 
-    table.insert(listFilter, f) 
-end
-UI:AddDropdown(CollectSec, "Select Fruit Filter", listFilter, function(v) 
-    _G.CollectSelectedFruit = v 
-end)
-UI:AddToggle(CollectSec, "Auto Collect Filter Fruit", false, function(v) 
-    _G.AutoCollectFruit = v 
-end)
-UI:AddToggle(CollectSec, "Auto Collect All Fruit", false, function(v) 
-    _G.AutoCollectAllFruit = v 
-end)
+for _, f in pairs(FruitsList) do table.insert(listFilter, f) end
 
--- AUTOMATICALLY TAB
-local AutoSec = UI:AddSection("Automatically", "🔄 Auto Sell")
-UI:AddToggle(AutoSec, "Auto Sell All Harvest", false, function(v) 
-    _G.AutoSellAll = v 
-end)
-UI:AddDropdown(AutoSec, "Select Fruit to Sell", listFilter, function(v) 
-    _G.SellSelectedFruit = v 
-end)
-UI:AddToggle(AutoSec, "Auto Sell Filter Fruit", false, function(v) 
-    _G.AutoSellFruit = v 
-end)
-
--- SHOP TAB
-local ShopSec = UI:AddSection("Shop", "🏪 Pet Shop")
-UI:AddDropdown(ShopSec, "Select Pet Egg Type", PetsList, function(v) 
-    _G.BuySelectedPet = v 
-end)
-UI:AddToggle(ShopSec, "Auto Buy Pet Egg", false, function(v) 
-    _G.AutoBuyPet = v 
-end)
-
--- MISC TAB
-local MiscSec = UI:AddSection("Misc", "📊 Information")
-local InfoLabel = Instance.new("TextLabel")
-InfoLabel.Size = UDim2.new(0, 380, 0, 80)
-InfoLabel.Position = UDim2.new(0, 10, 0, 5)
-InfoLabel.BackgroundColor3 = Color3.fromRGB(30, 22, 22)
-InfoLabel.Text = "Speed Hub X v5.2\nAnti-Pohon Bug Fixed\nSilent Mode Activated\nBy: Speed Hub Team"
-InfoLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-InfoLabel.TextSize = 12
-InfoLabel.Font = Enum.Font.SourceSans
-InfoLabel.TextYAlignment = Enum.TextYAlignment.Top
-InfoLabel.Parent = MiscSec
-Instance.new("UICorner", InfoLabel).CornerRadius = UDim.new(0, 4)
-
-print("✅ Speed Hub X v5.2 Loaded Successfully!")
-print("📌 Anti-Pohon Bug Fixed | Silent Mode Available")
+-- FIX: Menutup string dan parameter dropdown yang terputus di Line 482
+UI:AddDropdown(CollectSec, "Select Fruit Filter", listFilter, function(v) _G.CollectSelectedFruit = v end)
+UI:AddToggle(CollectSec, "Auto Collect Fruit Filter", false, function(v) _G.AutoCollectFruit = v end)
+UI:AddToggle(CollectSec, "Auto Collect All Fruit", false, function(v) _G.AutoCollectAllFruit = v end)
