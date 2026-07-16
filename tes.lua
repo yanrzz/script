@@ -1,328 +1,309 @@
--- ==========================================
--- 1. SETUP & KONFIGURASI
--- ==========================================
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local CoreGui = game:GetService("CoreGui")
+-- =============================================================================
+-- 1. DATABASE DATA (BUAH, GEAR, RARITY, MUTATION, PETS)
+-- =============================================================================
+local FruitsList = {
+    "Carrot", "Strawberry", "Blueberry", "Tulip", "Tomato", "Bamboo", "Corn", 
+    "Apple", "Mango", "Mushroom", "Banana", "Grape", "Acorn", "Rocket Pop", 
+    "Pineapple", "Cactus", "Dragon Fruit", "Cherry", "Fire Fern", "Green Bean", 
+    "Coconut", "Sunflower", "Venus Fly Trap", "Poison Apple", "Pomegranate", 
+    "Venom Spritter", "Sun Bloom", "Moon Bloom", "Dragon's Breath", "Star Fruit"
+}
 
--- Hapus UI lama jika script dijalankan ulang agar tidak menumpuk
-if CoreGui:FindFirstChild("GAG2_AdvancedFarm") then
-    CoreGui:FindFirstChild("GAG2_AdvancedFarm"):Destroy()
-end
+local GearsList = {
+    "Common Watering Can", "Common Sprinkler", "Uncommon Sprinkler", "Rare Sprinkler", 
+    "Sign", "Trowel", "Speed Mushroom", "Jump Mushroom", "Supersize Mushroom", 
+    "Invisibility Mushroom", "Shrink Mushroom", "Flashbang", "Gnome", "Megafon", 
+    "Basic Pot", "Legendary Sprinkler", "Super Sprinkler", "Super Watering Can"
+}
 
--- Status Fitur (Default: MATI)
-_G.AutoHarvest = false
-_G.AutoWater = false
-_G.AutoBuySeed = false
-_G.AutoBuyGear = false
-_G.ScriptRunning = true -- Menandakan script utama sedang berjalan
+local RarityList = {
+    "Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic", "Super"
+}
 
--- Batasan Kondisi
-local LIMIT_FRUIT_WEIGHT = 80 -- Panen hanya jika berat buah di bawah 80 Kg
-local LIMIT_MONEY_BUY = 80000000 -- Beli hanya jika uang di atas 80M (80.000.000)
+local MutationList = {
+    "Frozen", "Gold", "Electric", "Rainbow", "Starstruck", "Bloodlit", "Glow", "Eclipsed", "Aurora"
+}
 
--- ==========================================
--- 2. MEMBUAT UI PANEL UTAMA (DRAGGABLE)
--- ==========================================
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "GAG2_AdvancedFarm"
-ScreenGui.Parent = CoreGui
-ScreenGui.ResetOnSpawn = false
+local PetsList = {
+    "Bunny", "Frog" , "Owl", "Monkey", "Robin", "Bee", "Bear" ,"Unicorn", "Golden Dragonfly", "Raccoon", "Turtle", 
+}
 
--- Main Frame (Panel Menu Utama)
-local MainFrame = Instance.new("Frame")
-MainFrame.Name = "MainFrame"
-MainFrame.Parent = ScreenGui
-MainFrame.Size = UDim2.new(0, 240, 0, 360)
-MainFrame.Position = UDim2.new(0.05, 0, 0.25, 0)
-MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-MainFrame.Active = true
-MainFrame.Draggable = true
+-- =============================================================================
+-- 2. LOAD UI LIBRARY & WINDOW UTAMA
+-- =============================================================================
+local RedzLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/REDZ7710/REDZ4.0/main/redzui", true))()
 
-local MainCorner = Instance.new("UICorner")
-MainCorner.CornerRadius = UDim.new(0, 12)
-MainCorner.Parent = MainFrame
+local Window = RedzLib:MakeWindow({
+    Title = "Speed Hub X | Version 5.1.4",
+    SubTitle = "discord.gg/speedhubx",
+    FontFace = Enum.Font.SourceSansBold
+})
 
--- Judul Menu
-local Title = Instance.new("TextLabel")
-Title.Name = "Title"
-Title.Parent = MainFrame
-Title.Size = UDim2.new(1, -60, 0, 40)
-Title.Position = UDim2.new(0, 10, 0, 0)
-Title.BackgroundTransparency = 1
-Title.Text = "GAG 2 ADVANCED"
-Title.TextColor3 = Color3.fromRGB(255, 215, 0) -- Warna Emas
-Title.TextSize = 15
-Title.Font = Enum.Font.SourceSansBold
-Title.TextXAlignment = Enum.TextXAlignment.Left
+-- =============================================================================
+-- 3. PEMBUATAN TAB SIDEBAR
+-- =============================================================================
+local HomeTab          = Window:MakeTab({"Home", "rbxassetid://4483345998"})
+local MainTab          = Window:MakeTab({"Main", "rbxassetid://4483345998"})
+local AutomaticallyTab = Window:MakeTab({"Automatically", "rbxassetid://4483345998"})
+local InventoryTab     = Window:MakeTab({"Inventory", "rbxassetid://4483345998"})
+local ShopTab          = Window:MakeTab({"Shop", "rbxassetid://4483345998"})
+local WebhookTab       = Window:MakeTab({"Webhook", "rbxassetid://4483345998"})
+local MiscTab          = Window:MakeTab({"Misc", "rbxassetid://4483345998"})
 
--- ------------------------------------------
--- FITUR TOMBOL CLOSE & MINIMIZE (Kanan Atas)
--- ------------------------------------------
--- Tombol Close (X)
-local CloseBtn = Instance.new("TextButton")
-CloseBtn.Name = "CloseBtn"
-CloseBtn.Parent = MainFrame
-CloseBtn.Size = UDim2.new(0, 25, 0, 25)
-CloseBtn.Position = UDim2.new(1, -30, 0, 8)
-CloseBtn.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
-CloseBtn.Text = "X"
-CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-CloseBtn.TextSize = 14
-CloseBtn.Font = Enum.Font.SourceSansBold
+-- =============================================================================
+-- 4. ISI KONTEN: HOME TAB
+-- =============================================================================
+HomeTab:AddLabel("Home")
 
-local CloseCorner = Instance.new("UICorner")
-CloseCorner.CornerRadius = UDim.new(1, 0) -- Lingkaran sempurna
-CloseCorner.Parent = CloseBtn
+-- Discord Section
+HomeTab:AddSection({"Discord"})
+HomeTab:AddButton({
+    Name = "Discord Invite",
+    Callback = function()
+        setclipboard("https://discord.gg/speedhubx")
+        RedzLib:SetNotification({
+            Title = "Speed Hub X",
+            Description = "Discord link copied to clipboard!",
+            Time = 3
+        })
+    end
+})
 
--- Tombol Minimize (-)
-local MinBtn = Instance.new("TextButton")
-MinBtn.Name = "MinBtn"
-MinBtn.Parent = MainFrame
-MinBtn.Size = UDim2.new(0, 25, 0, 25)
-MinBtn.Position = UDim2.new(1, -60, 0, 8)
-MinBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-MinBtn.Text = "-"
-MinBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-MinBtn.TextSize = 16
-MinBtn.Font = Enum.Font.SourceSansBold
-
-local MinCorner = Instance.new("UICorner")
-MinCorner.CornerRadius = UDim.new(1, 0)
-MinCorner.Parent = MinBtn
-
--- ------------------------------------------
--- TOMBOL EXPAND (Hanya Muncul Saat di-Minimize)
--- ------------------------------------------
-local OpenBtn = Instance.new("TextButton")
-OpenBtn.Name = "OpenBtn"
-OpenBtn.Parent = ScreenGui
-OpenBtn.Size = UDim2.new(0, 50, 0, 50)
-OpenBtn.Position = UDim2.new(0.05, 0, 0.25, 0)
-OpenBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-OpenBtn.Text = "OPEN"
-OpenBtn.TextColor3 = Color3.fromRGB(255, 215, 0)
-OpenBtn.TextSize = 12
-OpenBtn.Font = Enum.Font.SourceSansBold
-OpenBtn.Visible = false -- Sembunyikan secara default
-OpenBtn.Active = true
-OpenBtn.Draggable = true
-
-local OpenCorner = Instance.new("UICorner")
-OpenCorner.CornerRadius = UDim.new(1, 0) -- Bentuk lingkaran
-OpenCorner.Parent = OpenBtn
-
--- ==========================================
--- 3. TOMBOL FITUR AUTO FARM
--- ==========================================
-local function createToggleButton(name, text, positionY)
-    local Button = Instance.new("TextButton")
-    Button.Name = name
-    Button.Parent = MainFrame
-    Button.Size = UDim2.new(0, 200, 0, 40)
-    Button.Position = UDim2.new(0.5, -100, 0, positionY)
-    Button.BackgroundColor3 = Color3.fromRGB(200, 50, 50) -- Default Merah
-    Button.Text = text .. ": OFF"
-    Button.TextColor3 = Color3.fromRGB(255, 255, 255)
-    Button.TextSize = 14
-    Button.Font = Enum.Font.SourceSansBold
-    
-    local Corner = Instance.new("UICorner")
-    Corner.CornerRadius = UDim.new(0, 8)
-    Corner.Parent = Button
-    
-    return Button
-end
-
-local btnHarvest = createToggleButton("BtnHarvest", "Auto Harvest (<80kg)", 50)
-local btnWater = createToggleButton("BtnWater", "Auto Water", 110)
-local btnBuySeed = createToggleButton("BtnBuySeed", "Auto Buy Seed (>80M)", 170)
-local btnBuyGear = createToggleButton("BtnBuyGear", "Auto Buy Gear", 230)
-
--- Text Info Kondisi Aktif di bagian bawah UI
-local InfoLabel = Instance.new("TextLabel")
-InfoLabel.Parent = MainFrame
-InfoLabel.Size = UDim2.new(1, 0, 0, 60)
-InfoLabel.Position = UDim2.new(0, 0, 0, 290)
-InfoLabel.BackgroundTransparency = 1
-InfoLabel.Text = "Limit Panen: < 80 Kg\nLimit Beli: > 80M Sheckles"
-InfoLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
-InfoLabel.TextSize = 12
-InfoLabel.Font = Enum.Font.SourceSansItalic
-
--- ==========================================
--- 4. KONTROL TOMBOL CLOSE & MINIMIZE (LOGIKA)
--- ==========================================
--- Logika Menutup UI (Close)
-CloseBtn.MouseButton1Click:Connect(function()
-    _G.AutoHarvest = false
-    _G.AutoWater = false
-    _G.AutoBuySeed = false
-    _G.AutoBuyGear = false
-    _G.ScriptRunning = false -- Hentikan semua looping
-    ScreenGui:Destroy() -- Hapus UI dari game
-end)
-
--- Logika Mengecilkan UI (Minimize)
-MinBtn.MouseButton1Click:Connect(function()
-    MainFrame.Visible = false
-    OpenBtn.Position = MainFrame.Position -- Samakan posisi tombol Open dengan panel terakhir
-    OpenBtn.Visible = true
-end)
-
--- Logika Membuka Kembali UI (Maximize)
-OpenBtn.MouseButton1Click:Connect(function()
-    OpenBtn.Visible = false
-    MainFrame.Position = OpenBtn.Position -- Samakan posisi panel dengan tombol Open terakhir
-    MainFrame.Visible = true
-end)
-
--- ==========================================
--- 5. FUNGSI UNTUK MENDAPATKAN DATA PEMAIN
--- ==========================================
-local function getPlayerStats()
-    local leaderstats = LocalPlayer:FindFirstChild("leaderstats")
-    local s_money = 0
-    local s_fruit = 0
-    
-    if leaderstats then
-        local moneyObj = leaderstats:FindFirstChild("Sheckles") or leaderstats:FindFirstChild("Money") or leaderstats:FindFirstChild("Cash")
-        if moneyObj then
-            s_money = moneyObj.Value
-        end
-        
-        local fruitObj = leaderstats:FindFirstChild("Fruits") or leaderstats:FindFirstChild("Weight") or leaderstats:FindFirstChild("Fruit")
-        if fruitObj then
-            s_fruit = fruitObj.Value
+-- LocalPlayer Section
+HomeTab:AddSection({"LocalPlayer"})
+HomeTab:AddTextBox({
+    Name = "Set Speed",
+    Default = "",
+    PlaceholderText = "Write your input there",
+    Callback = function(Value)
+        local num = tonumber(Value)
+        if num and game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("Humanoid") then
+            game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = num
         end
     end
-    return s_money, s_fruit
-end
+})
 
-local function firePrompt(prompt)
-    if prompt and prompt:IsA("ProximityPrompt") then
-        fireproximityprompt(prompt, 1)
+HomeTab:AddToggle({
+    Name = "Enable Walkspeed",
+    Default = false,
+    Callback = function(Value)
+        _G.WalkspeedToggle = Value
+        task.spawn(function()
+            while _G.WalkspeedToggle do
+                task.wait()
+                pcall(function()
+                    if game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("Humanoid") then
+                        game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = 50 
+                    end
+                end)
+            end
+        end)
     end
-end
+})
 
--- ==========================================
--- 6. LOGIKA UTAMA (LOOP DETEKSI)
--- ==========================================
-task.spawn(function()
-    while _G.ScriptRunning do
-        task.wait(0.3)
-        local money, fruitWeight = getPlayerStats()
-
-        -- LOOP UNTUK HARVEST & WATER
-        if _G.AutoHarvest or _G.AutoWater then
-            for _, obj in pairs(workspace:GetDescendants()) do
-                if not _G.ScriptRunning then break end
-                if obj:IsA("ProximityPrompt") then
-                    
-                    -- Aksi 1: AUTO HARVEST (Hanya jika berat buah DI BAWAH 80 Kg)
-                    if _G.AutoHarvest and fruitWeight < LIMIT_FRUIT_WEIGHT then
-                        if obj.ActionText == "Harvest" or obj.ObjectText == "Harvest" then
-                            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                                LocalPlayer.Character.HumanoidRootPart.CFrame = obj.Parent.CFrame + Vector3.new(0, 2, 0)
-                                task.wait(0.1)
-                                firePrompt(obj)
-                                task.wait(0.2)
+HomeTab:AddToggle({
+    Name = "No Clip",
+    Default = false,
+    Callback = function(Value)
+        _G.NoClipToggle = Value
+        task.spawn(function()
+            while _G.NoClipToggle do
+                task.wait()
+                pcall(function()
+                    if game.Players.LocalPlayer.Character then
+                        for _, part in pairs(game.Players.LocalPlayer.Character:GetChildren()) do
+                            if part:IsA("BasePart") then
+                                part.CanCollide = not _G.NoClipToggle
                             end
                         end
                     end
-
-                    -- Aksi 2: AUTO WATER
-                    if _G.AutoWater then
-                        if obj.ActionText == "Water" or obj.ObjectText == "Water" then
-                            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                                LocalPlayer.Character.HumanoidRootPart.CFrame = obj.Parent.CFrame + Vector3.new(0, 2, 0)
-                                task.wait(0.1)
-                                firePrompt(obj)
-                                task.wait(0.2)
-                            end
-                        end
-                    end
-
-                end
+                end)
             end
-        end
-
-        -- LOOP UNTUK AUTO BUY (Hanya jika uang DI ATAS 80M)
-        if (_G.AutoBuySeed or _G.AutoBuyGear) and money > LIMIT_MONEY_BUY then
-            for _, obj in pairs(workspace:GetDescendants()) do
-                if not _G.ScriptRunning then break end
-                if obj:IsA("ProximityPrompt") then
-                    
-                    -- Aksi 3: AUTO BUY SEED
-                    if _G.AutoBuySeed and (obj.ActionText == "Buy Seed" or obj.ObjectText == "Seed Shop") then
-                        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                            LocalPlayer.Character.HumanoidRootPart.CFrame = obj.Parent.CFrame + Vector3.new(0, 2, 0)
-                            task.wait(0.1)
-                            firePrompt(obj)
-                            task.wait(0.3)
-                        end
-                    end
-
-                    -- Aksi 4: AUTO BUY GEAR
-                    if _G.AutoBuyGear and (obj.ActionText == "Buy Gear" or obj.ObjectText == "Gear Shop") then
-                        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                            LocalPlayer.Character.HumanoidRootPart.CFrame = obj.Parent.CFrame + Vector3.new(0, 2, 0)
-                            task.wait(0.1)
-                            firePrompt(obj)
-                            task.wait(0.3)
-                        end
-                    end
-
-                end
-            end
-        end
-
+        end)
     end
-end)
+})
 
--- ==========================================
--- 7. KONTROL INTERAKSI TOMBOL (TOGGLE)
--- ==========================================
-btnHarvest.MouseButton1Click:Connect(function()
-    _G.AutoHarvest = not _G.AutoHarvest
-    if _G.AutoHarvest then
-        btnHarvest.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
-        btnHarvest.Text = "Auto Harvest: ON"
-    else
-        btnHarvest.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-        btnHarvest.Text = "Auto Harvest: OFF"
-    end
-end)
 
-btnWater.MouseButton1Click:Connect(function()
-    _G.AutoWater = not _G.AutoWater
-    if _G.AutoWater then
-        btnWater.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
-        btnWater.Text = "Auto Water: ON"
-    else
-        btnWater.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-        btnWater.Text = "Auto Water: OFF"
-    end
-end)
+-- =============================================================================
+-- 5. ISI KONTEN: MAIN TAB (SISTEM COLLAPSIBLE SECTIONS)
+-- =============================================================================
+MainTab:AddLabel("Main")
 
-btnBuySeed.MouseButton1Click:Connect(function()
-    _G.AutoBuySeed = not _G.AutoBuySeed
-    if _G.AutoBuySeed then
-        btnBuySeed.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
-        btnBuySeed.Text = "Auto Buy Seed: ON"
-    else
-        btnBuySeed.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-        btnBuySeed.Text = "Auto Buy Seed: OFF"
-    end
-end)
+-- -----------------------------------------------------------------------------
+-- [ SECTION 1 ]: TELEPORT MANAGER
+-- -----------------------------------------------------------------------------
+MainTab:AddSection({"Teleport Manager"})
 
-btnBuyGear.MouseButton1Click:Connect(function()
-    _G.AutoBuyGear = not _G.AutoBuyGear
-    if _G.AutoBuyGear then
-        btnBuyGear.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
-        btnBuyGear.Text = "Auto Buy Gear: ON"
-    else
-        btnBuyGear.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-        btnBuyGear.Text = "Auto Buy Gear: OFF"
+MainTab:AddDropdown({
+    Name = "Select Mode",
+    Options = {"Tween Teleport", "Instant Teleport"},
+    Default = "Tween Teleport",
+    Callback = function(Value)
+        _G.TeleportMode = Value
     end
-end)
+})
+
+MainTab:AddTextBox({
+    Name = "Base Tween Speed",
+    Default = "1.5",
+    PlaceholderText = "e.g. 1.5",
+    Callback = function(Value)
+        _G.BaseTweenSpeed = tonumber(Value) or 1.5
+    end
+})
+
+-- -----------------------------------------------------------------------------
+-- [ SECTION 2 ]: STACK FARM MANAGER
+-- -----------------------------------------------------------------------------
+MainTab:AddSection({"Stack Farm Manager"})
+
+MainTab:AddLabel("- [ Priority Selection ] -")
+
+MainTab:AddDropdown({ Name = "Priority Auto Plants Seed", Options = {"1", "2", "3", "None"}, Default = "None", Callback = function(v) _G.PriorityPlantSeed = v end })
+MainTab:AddDropdown({ Name = "Priority Auto Plants All Seeds", Options = {"1", "2", "3", "None"}, Default = "None", Callback = function(v) _G.PriorityPlantAll = v end })
+MainTab:AddDropdown({ Name = "Priority Auto Collect Fruit", Options = {"1", "2", "3", "None"}, Default = "None", Callback = function(v) _G.PriorityCollectFruit = v end })
+MainTab:AddDropdown({ Name = "Priority Auto Collect All Fruit", Options = {"1", "2", "3", "None"}, Default = "None", Callback = function(v) _G.PriorityCollectAll = v end })
+MainTab:AddDropdown({ Name = "Priority Auto Collect Best Fruit", Options = {"1", "2", "3", "None"}, Default = "None", Callback = function(v) _G.PriorityCollectBest = v end })
+MainTab:AddDropdown({ Name = "Priority Auto Collect Gold Seed", Options = {"1", "2", "3", "None"}, Default = "None", Callback = function(v) _G.PriorityGoldSeed = v end })
+MainTab:AddDropdown({ Name = "Priority Auto Collect Rainbow Seed", Options = {"1", "2", "3", "None"}, Default = "None", Callback = function(v) _G.PriorityRainbowSeed = v end })
+MainTab:AddDropdown({ Name = "Priority Auto Collect Mega Seed", Options = {"1", "2", "3", "None"}, Default = "None", Callback = function(v) _G.PriorityMegaSeed = v end })
+MainTab:AddDropdown({ Name = "Priority Auto Steal Fruit", Options = {"1", "2", "3", "None"}, Default = "None", Callback = function(v) _G.PrioritySteal = v end })
+MainTab:AddDropdown({ Name = "Priority Auto Steal Best Fruit", Options = {"1", "2", "3", "None"}, Default = "None", Callback = function(v) _G.PriorityStealBest = v end })
+MainTab:AddDropdown({ Name = "Priority Auto Lock Garden At Night", Options = {"1", "2", "3", "None"}, Default = "None", Callback = function(v) _G.PriorityLockGarden = v end })
+MainTab:AddDropdown({ Name = "Priority Auto Buy Pet", Options = {"1", "2", "3", "None"}, Default = "None", Callback = function(v) _G.PriorityBuyPet = v end })
+MainTab:AddDropdown({ Name = "Priority Auto Place Sprinkler", Options = {"1", "2", "3", "None"}, Default = "None", Callback = function(v) _G.PrioritySprinkler = v end })
+MainTab:AddDropdown({ Name = "Priority Auto Place All Sprinkler", Options = {"1", "2", "3", "None"}, Default = "None", Callback = function(v) _G.PriorityAllSprinkler = v end })
+MainTab:AddDropdown({ Name = "Priority Auto Collect Dropped Item", Options = {"1", "2", "3", "None"}, Default = "None", Callback = function(v) _G.PriorityDropped = v end })
+MainTab:AddDropdown({ Name = "Priority Auto Hit Player Stolen", Options = {"1", "2", "3", "None"}, Default = "None", Callback = function(v) _G.PriorityHitStolen = v end })
+
+MainTab:AddLabel("- [ Stack Manager ] -")
+
+MainTab:AddToggle({
+    Name = "Enable Stack Farming",
+    Default = false,
+    Callback = function(Value)
+        _G.EnableStackFarming = Value
+    end
+})
+
+MainTab:AddLabel("How Enable Stack Farming Priority does work?\nBasically,\nYou can set a priority number for each feature.\n\nA lower number means a higher priority:\n- Priority 1 is higher than 2\n- Priority 2 is higher than 3\n- And so on.")
+
+-- -----------------------------------------------------------------------------
+-- [ SECTION 3 ]: AUTOMATION PLANTS
+-- -----------------------------------------------------------------------------
+MainTab:AddSection({"Automation Plants"})
+
+MainTab:AddLabel("- [ Config ] -")
+MainTab:AddToggle({ Name = "Disable Teleport", Default = false, Callback = function(v) _G.DisableTeleportPlants = v end })
+
+MainTab:AddLabel("- [ Plants ] -")
+MainTab:AddDropdown({ Name = "Select Seeds", Options = FruitsList, Default = "", Callback = function(v) _G.SelectedSeed = v end })
+MainTab:AddDropdown({ Name = "Select Position", Options = {"Player Position", "Sprinkler Radius", "Custom Coordinate"}, Default = "Player Position", Callback = function(v) _G.SelectPosition = v end })
+MainTab:AddDropdown({ Name = "Select Sprinkler For Plants", Options = GearsList, Default = "", Callback = function(v) _G.SelectedSprinkler = v end })
+
+MainTab:AddButton({ Name = "Save Position", Callback = function() print("Position Saved!") end })
+MainTab:AddTextBox({ Name = "Delay To Plants", Default = "0", PlaceholderText = "0", Callback = function(v) _G.DelayToPlants = tonumber(v) or 0 end })
+
+MainTab:AddToggle({ Name = "Auto Plants Seed", Default = false, Callback = function(v) _G.AutoPlantsSeed = v end })
+MainTab:AddToggle({ Name = "Auto Plants All Seeds", Default = false, Callback = function(v) _G.AutoPlantsAllSeeds = v end })
+
+-- -----------------------------------------------------------------------------
+-- [ SECTION 4 ]: AUTOMATION COLLECTION
+-- -----------------------------------------------------------------------------
+MainTab:AddSection({"Automation Collection"})
+
+MainTab:AddLabel("- [ Config ] -")
+MainTab:AddToggle({ Name = "Disable Teleport", Default = false, Callback = function(v) _G.DisableTeleportCollection = v end })
+MainTab:AddToggle({ Name = "Stop Collect If Backpack Is Full Max", Default = false, Callback = function(v) _G.StopCollectIfFull = v end })
+MainTab:AddTextBox({ Name = "Delay To Collect", Default = "0", PlaceholderText = "0", Callback = function(v) _G.DelayToCollect = tonumber(v) or 0 end })
+MainTab:AddToggle({ Name = "Disable Collect Prompt", Default = false, Callback = function(v) _G.DisableCollectPrompt = v end })
+
+MainTab:AddLabel("- [ Collects ] -")
+MainTab:AddDropdown({ Name = "Select Filter", Options = {"Whitelist", "Blacklist"}, Default = "Whitelist", Callback = function(v) _G.CollectFilter = v end })
+MainTab:AddDropdown({ Name = "Select Fruit", Options = FruitsList, Default = "", Callback = function(v) _G.CollectSelectedFruit = v end })
+MainTab:AddDropdown({ Name = "Select Rarity", Options = RarityList, Default = "", Callback = function(v) _G.CollectSelectedRarity = v end })
+MainTab:AddDropdown({ Name = "Select Mutation", Options = MutationList, Default = "", Callback = function(v) _G.CollectSelectedMutation = v end })
+MainTab:AddDropdown({ Name = "Select Threshold Mode", Options = {"Below", "Above"}, Default = "Below", Callback = function(v) _G.CollectThresholdMode = v end })
+MainTab:AddTextBox({ Name = "Weight Threshold", Default = "100", PlaceholderText = "100", Callback = function(v) _G.CollectWeightThreshold = tonumber(v) or 100 end })
+
+MainTab:AddToggle({ Name = "Only Mutated Fruit", Default = false, Callback = function(v) _G.OnlyMutatedFruit = v end })
+MainTab:AddToggle({ Name = "Auto Collect Fruit", Default = false, Callback = function(v) _G.AutoCollectFruit = v end })
+MainTab:AddToggle({ Name = "Auto Collect All Fruit", Default = false, Callback = function(v) _G.AutoCollectAllFruit = v end })
+MainTab:AddToggle({ Name = "Enable Filters", Default = false, Callback = function(v) _G.EnableCollectionFilters = v end })
+MainTab:AddToggle({ Name = "Auto Collect Best Fruit", Default = false, Callback = function(v) _G.AutoCollectBestFruit = v end })
+
+MainTab:AddLabel("- [ Collect Event Seed ] -")
+MainTab:AddToggle({ Name = "Auto Collect Gold Seed", Default = false, Callback = function(v) _G.AutoCollectGoldSeed = v end })
+MainTab:AddToggle({ Name = "Auto Collect Rainbow Seed", Default = false, Callback = function(v) _G.AutoCollectRainbowSeed = v end })
+MainTab:AddToggle({ Name = "Auto Collect Mega Seed", Default = false, Callback = function(v) _G.AutoCollectMegaSeed = v end })
+
+MainTab:AddLabel("- [ Collect Dropped Item ] -")
+MainTab:AddToggle({ Name = "Auto Collect Dropped Item", Default = false, Callback = function(v) _G.AutoCollectDroppedItem = v end })
+
+-- -----------------------------------------------------------------------------
+-- [ SECTION 5 ]: AUTOMATION STEAL
+-- -----------------------------------------------------------------------------
+MainTab:AddSection({"Automation Steal"})
+
+MainTab:AddLabel("- [ Steal Fruits ] -")
+MainTab:AddDropdown({ Name = "Select Filter", Options = {"Whitelist", "Blacklist"}, Default = "Whitelist", Callback = function(v) _G.StealFilter = v end })
+MainTab:AddDropdown({ Name = "Select Fruit", Options = FruitsList, Default = "", Callback = function(v) _G.StealSelectedFruit = v end })
+MainTab:AddDropdown({ Name = "Select Rarity", Options = RarityList, Default = "", Callback = function(v) _G.StealSelectedRarity = v end })
+MainTab:AddDropdown({ Name = "Select Mutation", Options = MutationList, Default = "", Callback = function(v) _G.StealSelectedMutation = v end })
+MainTab:AddToggle({ Name = "Auto Steal Fruit", Default = false, Callback = function(v) _G.AutoStealFruit = v end })
+
+MainTab:AddLabel("- [ Steal Best Fruit ] -")
+MainTab:AddToggle({ Name = "Auto Steal Best Fruit", Default = false, Callback = function(v) _G.AutoStealBestFruit = v end })
+
+MainTab:AddLabel("- [ Locks Garden ] -")
+MainTab:AddToggle({ Name = "Auto Lock Garden At Night", Default = false, Callback = function(v) _G.AutoLockGarden = v end })
+
+MainTab:AddLabel("- [ Hit Players ] -")
+MainTab:AddToggle({ Name = "Auto Hit Player Stolen", Default = false, Callback = function(v) _G.AutoHitStolen = v end })
+
+-- -----------------------------------------------------------------------------
+-- [ SECTION 6 ]: AUTOMATION SELL
+-- -----------------------------------------------------------------------------
+MainTab:AddSection({"Automation Sell"})
+
+MainTab:AddLabel("- [ Sell All ] -")
+MainTab:AddToggle({ Name = "Auto Sell All", Default = false, Callback = function(v) _G.AutoSellAll = v end })
+MainTab:AddButton({ Name = "Sell All", Callback = function() print("Selling everything!") end })
+
+MainTab:AddLabel("- [ Sell Fruits ] -")
+MainTab:AddDropdown({ Name = "Select Sell Fruit", Options = FruitsList, Default = "", Callback = function(v) _G.SellSelectedFruit = v end })
+MainTab:AddDropdown({ Name = "Select Sell Rarity", Options = RarityList, Default = "", Callback = function(v) _G.SellSelectedRarity = v end })
+MainTab:AddDropdown({ Name = "Select Sell Mutation", Options = MutationList, Default = "", Callback = function(v) _G.SellSelectedMutation = v end })
+MainTab:AddDropdown({ Name = "Select Threshold Mode", Options = {"Below", "Above"}, Default = "Below", Callback = function(v) _G.SellThresholdMode = v end })
+MainTab:AddTextBox({ Name = "Weight Threshold", Default = "100", PlaceholderText = "100", Callback = function(v) _G.SellWeightThreshold = tonumber(v) or 100 end })
+MainTab:AddToggle({ Name = "Auto Sell Fruit", Default = false, Callback = function(v) _G.AutoSellFruit = v end })
+
+MainTab:AddLabel("- [ Sell Pets ] -")
+MainTab:AddDropdown({ Name = "Select Pets", Options = PetsList, Default = "", Callback = function(v) _G.SellSelectedPet = v end })
+MainTab:AddDropdown({ Name = "Select Rarity Pets", Options = RarityList, Default = "", Callback = function(v) _G.SellSelectedPetRarity = v end })
+MainTab:AddDropdown({ Name = "Select Size Pets", Options = {"Small", "Medium", "Large", "Huge"}, Default = "Small", Callback = function(v) _G.SellSelectedPetSize = v end })
+MainTab:AddToggle({ Name = "Auto Sell Pets", Default = false, Callback = function(v) _G.AutoSellPets = v end })
+
+-- -----------------------------------------------------------------------------
+-- [ SECTION 7 ]: AUTOMATION PETS
+-- -----------------------------------------------------------------------------
+MainTab:AddSection({"Automation Pets"})
+
+MainTab:AddToggle({ Name = "Pet Purchase Protection", Default = false, Callback = function(v) _G.PetPurchaseProtection = v end })
+
+MainTab:AddLabel("- [ Buys Pets ] -")
+MainTab:AddDropdown({ Name = "Select Pets", Options = PetsList, Default = "", Callback = function(v) _G.BuySelectedPet = v end })
+MainTab:AddDropdown({ Name = "Select Rarity Pets", Options = RarityList, Default = "", Callback = function(v) _G.BuySelectedPetRarity = v end })
+MainTab:AddDropdown({ Name = "Select Size Pets", Options = {"Small", "Medium", "Large", "Huge"}, Default = "Small", Callback = function(v) _G.BuySelectedPetSize = v end })
+MainTab:AddTextBox({ Name = "Pet Sheckle Limit", Default = "0", PlaceholderText = "0", Callback = function(v) _G.PetSheckleLimit = tonumber(v) or 0 end })
+MainTab:AddToggle({ Name = "Auto Buy Pet", Default = false, Callback = function(v) _G.AutoBuyPet = v end })
+
+
+-- =============================================================================
+-- 6. PLACEHOLDER UNTUK TAB LAINNYA
+-- =============================================================================
+AutomaticallyTab:AddLabel("Fitur Auto Farm GAG 2 akan ditaruh di sini.")
+InventoryTab:AddLabel("Fitur Inventory ditaruh di sini.")
+ShopTab:AddLabel("Fitur Shop ditaruh di sini.")
+WebhookTab:AddLabel("Fitur Webhook ditaruh di sini.")
+MiscTab:AddLabel("Fitur Misc ditaruh di sini.")
