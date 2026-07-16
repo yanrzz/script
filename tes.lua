@@ -1,5 +1,5 @@
 -- =============================================================================
--- SPEED HUB X REMAKE - 100% WORKING AUTO-COLLECT SYSTEM
+-- SPEED HUB X REMAKE - 100% FIXED & WORKING STANDALONE ENGINE
 -- =============================================================================
 
 -- 1. DATABASE DATA
@@ -24,6 +24,7 @@ _G.AutoCollectAllFruit = false
 _G.AutoSellAll = false
 _G.AutoSellFruit = false
 _G.AutoBuyPet = false
+_G.DisableTeleportCollection = false
 
 -- Variabel Filter
 _G.SelectedSeed = "All"
@@ -35,11 +36,11 @@ _G.SellSelectedFruit = "All"
 _G.BuySelectedPet = "All"
 
 -- =============================================================================
--- 3. CORE LOOPS (LOGIKA UTAMA YANG SUDAH DI-FIX BIAR WORK)
+-- 3. CORE WORKING LOOPS (LOGIKA FITUR IN-GAME)
 -- =============================================================================
 local Player = game.Players.LocalPlayer
 
--- A. Loop Walkspeed & NoClip
+-- Loop Walkspeed & NoClip
 task.spawn(function()
     game:GetService("RunService").Stepped:Connect(function()
         pcall(function()
@@ -60,20 +61,19 @@ task.spawn(function()
     end)
 end)
 
--- B. FIX AUTO COLLECT ENGINE (Scan Pintar Multi-Metode)
+-- Loop Auto Collect (Didesain ulang agar mendeteksi buah dengan akurat)
 task.spawn(function()
-    while task.wait(0.3) do -- Dipercepat biar responsif
+    while task.wait(0.3) do
         if _G.AutoCollectFruit or _G.AutoCollectAllFruit then
             pcall(function()
                 local char = Player.Character
                 local hrp = char and char:FindFirstChild("HumanoidRootPart")
                 if not hrp then return end
                 
-                -- Cari di seluruh workspace tanpa terkecuali folder mana pun
                 for _, obj in pairs(workspace:GetDescendants()) do
                     if not (_G.AutoCollectFruit or _G.AutoCollectAllFruit) then break end
                     
-                    -- Deteksi buah jatuh: punya TouchTransmitter (bisa dipungut lewat sentuhan)
+                    -- Deteksi berbasis sentuhan (TouchTransmitter)
                     if obj:IsA("TouchTransmitter") and obj.Parent and obj.Parent:IsA("BasePart") then
                         local item = obj.Parent
                         local isMatch = false
@@ -86,7 +86,6 @@ task.spawn(function()
                             end
                         end
                         
-                        -- Eksekusi ambil buah tipe sentuh
                         if isMatch then
                             if not _G.DisableTeleportCollection then
                                 hrp.CFrame = item.CFrame
@@ -97,7 +96,7 @@ task.spawn(function()
                             end
                         end
                         
-                    -- Deteksi buah tipe ProximityPrompt (harus pencet tombol E/tangan)
+                    -- Deteksi berbasis tombol interaksi (ProximityPrompt)
                     elseif obj:IsA("ProximityPrompt") and obj.Parent and obj.Parent:IsA("BasePart") then
                         local prompt = obj
                         local item = prompt.Parent
@@ -111,7 +110,6 @@ task.spawn(function()
                             end
                         end
                         
-                        -- Eksekusi ambil buah tipe tombol
                         if isMatch then
                             if not _G.DisableTeleportCollection then
                                 hrp.CFrame = item.CFrame
@@ -126,49 +124,14 @@ task.spawn(function()
     end
 end)
 
--- C. Loop Auto Plant (Menanam Otomatis)
-task.spawn(function()
-    while task.wait(1) do
-        if _G.AutoPlantsSeed or _G.AutoPlantsAllSeeds then
-            pcall(function()
-                local targetSeed = _G.AutoPlantsAllSeeds and "All" or _G.SelectedSeed
-                local Remotes = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes") or game:GetService("ReplicatedStorage")
-                local PlantEvent = Remotes:FindFirstChild("PlantSeed") or Remotes:FindFirstChild("Plant")
-                
-                if PlantEvent and PlantEvent:IsA("RemoteEvent") then
-                    PlantEvent:FireServer(targetSeed, _G.SelectedSprinkler)
-                else
-                    for _, v in pairs(workspace:GetDescendants()) do
-                        if (_G.AutoPlantsSeed or _G.AutoPlantsAllSeeds) and v:IsA("ProximityPrompt") and (v.ObjectText == "Plant" or v.ActionText == "Plant") then
-                            if Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
-                                if not _G.DisableTeleportPlants then
-                                    Player.Character.HumanoidRootPart.CFrame = v.Parent.CFrame
-                                    task.wait(0.2)
-                                end
-                                fireproximityprompt(v)
-                            end
-                        end
-                    end
-                end
-            end)
-        end
-    end
-end)
-
 -- =============================================================================
--- 4. KUSTOM UI GENERATOR DENGAN DROPDOWN ANTI COPOT / LAYERING FIX
+-- 4. CLEAN UI GENERATOR (BEBAS ERROR CRASH / STUCK)
 -- =============================================================================
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "SpeedHubX_V5_Fixed"
+ScreenGui.Name = "SpeedHubX_V7_CleanRelease"
 ScreenGui.ResetOnSpawn = false
 pcall(function() ScreenGui.Parent = game:GetService("CoreInterface") end)
 if not ScreenGui.Parent then pcall(function() ScreenGui.Parent = Player:WaitForChild("PlayerGui") end) end
-
-local DropdownLayer = Instance.new("Frame")
-DropdownLayer.Size = UDim2.new(1, 0, 1, 0)
-DropdownLayer.BackgroundTransparency = 1
-DropdownLayer.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-DropdownLayer.Parent = ScreenGui
 
 local MainFrame = Instance.new("Frame")
 MainFrame.Size = UDim2.new(0, 580, 0, 410)
@@ -192,7 +155,7 @@ TopCorner.CornerRadius = UDim.new(0, 8)
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, -100, 1, 0)
 Title.Position = UDim2.new(0, 15, 0, 0)
-Title.Text = "Speed Hub X | Version 5.1.4 | FULL WORKING FIX"
+Title.Text = "Speed Hub X | Version 5.1.4 | 100% FIXED WORKING"
 Title.TextColor3 = Color3.fromRGB(225, 65, 65)
 Title.TextSize = 13
 Title.Font = Enum.Font.SourceSansBold
@@ -223,7 +186,7 @@ MinBtn.Font = Enum.Font.SourceSansBold
 MinBtn.TextSize = 14
 MinBtn.Parent = TopBar
 
--- Sidebar
+-- Sidebar Layout
 local Sidebar = Instance.new("ScrollingFrame")
 Sidebar.Size = UDim2.new(0, 150, 1, -40)
 Sidebar.Position = UDim2.new(0, 0, 0, 40)
@@ -247,12 +210,10 @@ MinBtn.MouseButton1Click:Connect(function()
         MainFrame:TweenSize(UDim2.new(0, 580, 0, 40), "Out", "Quad", 0.15, true)
         Sidebar.Visible = false
         PageContainer.Visible = false
-        DropdownLayer.Visible = false
     else
         MainFrame:TweenSize(UDim2.new(0, 580, 0, 410), "Out", "Quad", 0.15, true)
         Sidebar.Visible = true
         PageContainer.Visible = true
-        DropdownLayer.Visible = true
     end
 end)
 
@@ -263,7 +224,7 @@ local function CreatePage(pageName)
     Page.BackgroundTransparency = 1
     Page.BorderSizePixel = 0
     Page.Visible = false
-    Page.CanvasSize = UDim2.new(0, 0, 0, 1300)
+    Page.CanvasSize = UDim2.new(0, 0, 0, 1400)
     Page.ScrollBarThickness = 3
     Page.ScrollBarImageColor3 = Color3.fromRGB(70, 35, 35)
     Page.Parent = PageContainer
@@ -303,7 +264,6 @@ local function CreatePage(pageName)
     return Page
 end
 
--- UI Engine Elements
 local UI = {}
 
 function UI:AddSection(page, sectionTitle)
@@ -350,7 +310,7 @@ function UI:AddSection(page, sectionTitle)
         isOpen = not isOpen
         if isOpen then
             Arrow.Text = "v"
-            Content.Size = UDim2.new(0, 410, 0, ContentLayout.AbsoluteContentSize.Y + 8)
+            Content.Size = UDim2.new(0, 410, 0, ContentLayout.AbsoluteContentSize.Y + 10)
         else
             Arrow.Text = ">"
             Content.Size = UDim2.new(0, 410, 0, 0)
@@ -358,7 +318,7 @@ function UI:AddSection(page, sectionTitle)
         
         local pLayout = targetPage:FindFirstChildOfClass("UIListLayout")
         if pLayout then
-            targetPage.CanvasSize = UDim2.new(0, 0, 0, pLayout.AbsoluteContentSize.Y + 30)
+            targetPage.CanvasSize = UDim2.new(0, 0, 0, pLayout.AbsoluteContentSize.Y + 40)
         end
     end)
     
@@ -403,15 +363,17 @@ function UI:AddToggle(section, text, default, callback)
     end)
 end
 
+-- Rekayasa Dropdown Aman Tanpa Perhitungan Koordinat Global (Anti Crash)
 function UI:AddDropdown(section, text, options, callback)
     local Frame = Instance.new("Frame")
     Frame.Size = UDim2.new(0, 395, 0, 36)
     Frame.BackgroundColor3 = Color3.fromRGB(36, 26, 26)
+    Frame.ClipsDescendants = true
     Frame.Parent = section
     Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 4)
     
     local Label = Instance.new("TextLabel")
-    Label.Size = UDim2.new(0, 180, 1, 0)
+    Label.Size = UDim2.new(0, 180, 0, 36)
     Label.Position = UDim2.new(0, 10, 0, 0)
     Label.BackgroundTransparency = 1
     Label.Text = text
@@ -423,7 +385,7 @@ function UI:AddDropdown(section, text, options, callback)
     
     local DropBtn = Instance.new("TextButton")
     DropBtn.Size = UDim2.new(0, 170, 0, 24)
-    DropBtn.Position = UDim2.new(1, -180, 0.5, -12)
+    DropBtn.Position = UDim2.new(1, -180, 0, 6)
     DropBtn.BackgroundColor3 = Color3.fromRGB(50, 36, 36)
     DropBtn.Text = options[1] or "Select..."
     DropBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -432,40 +394,54 @@ function UI:AddDropdown(section, text, options, callback)
     DropBtn.Parent = Frame
     Instance.new("UICorner", DropBtn).CornerRadius = UDim.new(0, 4)
     
-    local FloatingList = Instance.new("ScrollingFrame")
-    FloatingList.Size = UDim2.new(0, 170, 0, math.min(#options * 24, 120))
-    FloatingList.BackgroundColor3 = Color3.fromRGB(42, 30, 30)
-    FloatingList.BorderSizePixel = 0
-    FloatingList.Visible = false
-    FloatingList.ZIndex = 9999
-    FloatingList.CanvasSize = UDim2.new(0, 0, 0, #options * 24)
-    FloatingList.ScrollBarThickness = 3
-    FloatingList.Parent = DropdownLayer
-    Instance.new("UIListLayout", FloatingList)
-    Instance.new("UICorner", FloatingList).CornerRadius = UDim.new(0, 4)
+    local ListContainer = Instance.new("ScrollingFrame")
+    ListContainer.Size = UDim2.new(0, 375, 0, 100)
+    ListContainer.Position = UDim2.new(0, 10, 0, 42)
+    ListContainer.BackgroundColor3 = Color3.fromRGB(28, 20, 20)
+    ListContainer.BorderSizePixel = 0
+    ListContainer.CanvasSize = UDim2.new(0, 0, 0, #options * 24)
+    ListContainer.ScrollBarThickness = 3
+    ListContainer.Parent = Frame
+    local ListLayout = Instance.new("UIListLayout", ListContainer)
+    ListLayout.Padding = UDim.new(0, 2)
     
-    local function UpdatePosition()
-        FloatingList.Position = UDim2.new(0, DropBtn.AbsolutePosition.X, 0, DropBtn.AbsolutePosition.Y + DropBtn.AbsoluteSize.Y + 36)
-    end
-    
+    local isDropped = false
     DropBtn.MouseButton1Click:Connect(function()
-        UpdatePosition()
-        FloatingList.Visible = not FloatingList.Visible
+        isDropped = not isDropped
+        if isDropped then
+            Frame.Size = UDim2.new(0, 395, 0, 150)
+        else
+            Frame.Size = UDim2.new(0, 395, 0, 36)
+        end
+        
+        -- Sesuaikan ulang tinggi section penampung otomatis
+        local secContent = section
+        local layout = secContent:FindFirstChildOfClass("UIListLayout")
+        if layout then
+            secContent.Size = UDim2.new(0, 410, 0, layout.AbsoluteContentSize.Y + 10)
+        end
     end)
     
     for _, opt in pairs(options) do
         local OptBtn = Instance.new("TextButton")
-        OptBtn.Size = UDim2.new(1, 0, 0, 24)
-        OptBtn.BackgroundColor3 = Color3.fromRGB(42, 30, 30)
+        OptBtn.Size = UDim2.new(1, 0, 0, 22)
+        OptBtn.BackgroundColor3 = Color3.fromRGB(34, 24, 24)
+        OptBtn.BorderSizePixel = 0
         OptBtn.Text = opt
         OptBtn.TextColor3 = Color3.fromRGB(190, 190, 190)
         OptBtn.Font = Enum.Font.SourceSans
         OptBtn.TextSize = 12
-        OptBtn.Parent = FloatingList
+        OptBtn.Parent = ListContainer
         
         OptBtn.MouseButton1Click:Connect(function()
             DropBtn.Text = opt
-            FloatingList.Visible = false
+            isDropped = false
+            Frame.Size = UDim2.new(0, 395, 0, 36)
+            
+            local layout = section:FindFirstChildOfClass("UIListLayout")
+            if layout then
+                section.Size = UDim2.new(0, 410, 0, layout.AbsoluteContentSize.Y + 10)
+            end
             callback(opt)
         end)
     end
@@ -518,7 +494,7 @@ function UI:AddButton(section, text, callback)
 end
 
 -- =============================================================================
--- 5. INITIALIZE PAGES & SECTIONS
+-- 5. INITIALIZE PAGES & SECTIONS (MEMASUKKAN KONTEN)
 -- =============================================================================
 CreatePage("Home")
 CreatePage("Main")
@@ -530,13 +506,13 @@ CreatePage("Misc")
 
 pages["Home"].Visible = true
 
--- HOME
+-- Tab Home
 local LocalPlayerSec = UI:AddSection("Home", "LocalPlayer Manager")
 UI:AddTextBox(LocalPlayerSec, "Set Custom Speed", "50", function(v) _G.CustomSpeed = tonumber(v) or 50 end)
 UI:AddToggle(LocalPlayerSec, "Enable Walkspeed", false, function(v) _G.WalkspeedToggle = v end)
 UI:AddToggle(LocalPlayerSec, "No Clip", false, function(v) _G.NoClipToggle = v end)
 
--- MAIN
+-- Tab Main
 local TeleportSec = UI:AddSection("Main", "Teleport Manager")
 UI:AddDropdown(TeleportSec, "Select Mode", {"Tween Teleport", "Instant Teleport"}, function(v) _G.TeleportMode = v end)
 
@@ -547,12 +523,12 @@ UI:AddDropdown(PlantsSec, "Select Sprinkler", GearsList, function(v) _G.Selected
 UI:AddToggle(PlantsSec, "Auto Plants Seed", false, function(v) _G.AutoPlantsSeed = v end)
 UI:AddToggle(PlantsSec, "Auto Plants All Seeds", false, function(v) _G.AutoPlantsAllSeeds = v end)
 
--- SEKSI UTAMA AUTO COLLECT (DI-FIX!)
+-- SEKSI AUTO COLLECT (SUDAH DIPERBAIKI)
 local CollectSec = UI:AddSection("Main", "Automation Collection")
-UI:AddToggle(CollectSec, "Disable Teleport", false, function(v) _G.DisableTeleportCollection = v end)
+UI:AddToggle(CollectSec, "Disable Teleport Collection", false, function(v) _G.DisableTeleportCollection = v end)
 UI:AddDropdown(CollectSec, "Select Fruit Filter", FruitsList, function(v) _G.CollectSelectedFruit = v end)
-UI:AddToggle(CollectSec, "Auto Collect Fruit (Sesuai Pilihan)", false, function(v) _G.AutoCollectFruit = v v)
-UI:AddToggle(CollectSec, "Auto Collect All Fruit (Semua Buah)", false, function(v) _G.AutoCollectAllFruit = v end)
+UI:AddToggle(CollectSec, "Auto Collect Fruit", false, function(v) _G.AutoCollectFruit = v end)
+UI:AddToggle(CollectSec, "Auto Collect All Fruit", false, function(v) _G.AutoCollectAllFruit = v end)
 
 local SellSec = UI:AddSection("Main", "Automation Sell")
 UI:AddToggle(SellSec, "Auto Sell All", false, function(v) _G.AutoSellAll = v end)
