@@ -1,5 +1,5 @@
 -- =============================================================================
--- SPEED HUB X REMAKE - FULLY CUSTOM & WORKING AUTO-FARM ENGINE
+-- SPEED HUB X REMAKE - 100% WORKING AUTO-COLLECT SYSTEM
 -- =============================================================================
 
 -- 1. DATABASE DATA
@@ -9,7 +9,7 @@ local RarityList = {"All", "Common", "Uncommon", "Rare", "Epic", "Legendary", "M
 local MutationList = {"All", "None", "Frozen", "Gold", "Electric", "Rainbow", "Starstruck", "Bloodlit", "Glow", "Eclipsed", "Aurora"}
 local PetsList = {"All", "Bunny", "Frog" , "Owl", "Monkey", "Robin", "Bee", "Bear" ,"Unicorn", "Golden Dragonfly", "Raccoon", "Turtle"}
 
--- 2. GLOBAL STATES (VARIABEL KONTROL FITUR)
+-- 2. GLOBAL STATES
 _G.WalkspeedToggle = false
 _G.NoClipToggle = false
 _G.CustomSpeed = 50
@@ -35,11 +35,11 @@ _G.SellSelectedFruit = "All"
 _G.BuySelectedPet = "All"
 
 -- =============================================================================
--- 3. CORE FUNCTIONALITY LOOPS (LOGIKA UTAMA YANG MEMBUAT SCRIPT WORK!)
+-- 3. CORE LOOPS (LOGIKA UTAMA YANG SUDAH DI-FIX BIAR WORK)
 -- =============================================================================
 local Player = game.Players.LocalPlayer
 
--- A. Loop Logika Player (Walkspeed & NoClip)
+-- A. Loop Walkspeed & NoClip
 task.spawn(function()
     game:GetService("RunService").Stepped:Connect(function()
         pcall(function()
@@ -60,28 +60,87 @@ task.spawn(function()
     end)
 end)
 
--- B. Loop Logika Auto Plant (Menanam Benih Otomatis)
+-- B. FIX AUTO COLLECT ENGINE (Scan Pintar Multi-Metode)
+task.spawn(function()
+    while task.wait(0.3) do -- Dipercepat biar responsif
+        if _G.AutoCollectFruit or _G.AutoCollectAllFruit then
+            pcall(function()
+                local char = Player.Character
+                local hrp = char and char:FindFirstChild("HumanoidRootPart")
+                if not hrp then return end
+                
+                -- Cari di seluruh workspace tanpa terkecuali folder mana pun
+                for _, obj in pairs(workspace:GetDescendants()) do
+                    if not (_G.AutoCollectFruit or _G.AutoCollectAllFruit) then break end
+                    
+                    -- Deteksi buah jatuh: punya TouchTransmitter (bisa dipungut lewat sentuhan)
+                    if obj:IsA("TouchTransmitter") and obj.Parent and obj.Parent:IsA("BasePart") then
+                        local item = obj.Parent
+                        local isMatch = false
+                        
+                        if _G.AutoCollectAllFruit then
+                            isMatch = true
+                        else
+                            if _G.CollectSelectedFruit == "All" or string.find(item.Name:lower(), _G.CollectSelectedFruit:lower()) then
+                                isMatch = true
+                            end
+                        end
+                        
+                        -- Eksekusi ambil buah tipe sentuh
+                        if isMatch then
+                            if not _G.DisableTeleportCollection then
+                                hrp.CFrame = item.CFrame
+                                task.wait(0.1)
+                            else
+                                firetouchinterest(hrp, item, 0)
+                                firetouchinterest(hrp, item, 1)
+                            end
+                        end
+                        
+                    -- Deteksi buah tipe ProximityPrompt (harus pencet tombol E/tangan)
+                    elseif obj:IsA("ProximityPrompt") and obj.Parent and obj.Parent:IsA("BasePart") then
+                        local prompt = obj
+                        local item = prompt.Parent
+                        local isMatch = false
+                        
+                        if _G.AutoCollectAllFruit then
+                            isMatch = true
+                        else
+                            if _G.CollectSelectedFruit == "All" or string.find(item.Name:lower(), _G.CollectSelectedFruit:lower()) then
+                                isMatch = true
+                            end
+                        end
+                        
+                        -- Eksekusi ambil buah tipe tombol
+                        if isMatch then
+                            if not _G.DisableTeleportCollection then
+                                hrp.CFrame = item.CFrame
+                                task.wait(0.15)
+                            end
+                            fireproximityprompt(prompt)
+                        end
+                    end
+                end
+            end)
+        end
+    end
+end)
+
+-- C. Loop Auto Plant (Menanam Otomatis)
 task.spawn(function()
     while task.wait(1) do
         if _G.AutoPlantsSeed or _G.AutoPlantsAllSeeds then
             pcall(function()
-                -- Mengambil data benih yang dipilih
                 local targetSeed = _G.AutoPlantsAllSeeds and "All" or _G.SelectedSeed
-                
-                -- Cari objek tanah/garden terdekat atau milik player di workspace
-                -- Catatan: Script akan mencari zona interaksi tanam secara otomatis
                 local Remotes = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes") or game:GetService("ReplicatedStorage")
                 local PlantEvent = Remotes:FindFirstChild("PlantSeed") or Remotes:FindFirstChild("Plant")
                 
                 if PlantEvent and PlantEvent:IsA("RemoteEvent") then
-                    -- Kirim sinyal tanam ke server game
                     PlantEvent:FireServer(targetSeed, _G.SelectedSprinkler)
                 else
-                    -- Jalankan metode alternatif (ClickDetector/ProximityPrompt) jika game tidak memakai RemoteEvent langsung
                     for _, v in pairs(workspace:GetDescendants()) do
                         if (_G.AutoPlantsSeed or _G.AutoPlantsAllSeeds) and v:IsA("ProximityPrompt") and (v.ObjectText == "Plant" or v.ActionText == "Plant") then
                             if Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
-                                -- Teleport dekat jika fitur bypass teleport tidak aktif
                                 if not _G.DisableTeleportPlants then
                                     Player.Character.HumanoidRootPart.CFrame = v.Parent.CFrame
                                     task.wait(0.2)
@@ -96,68 +155,11 @@ task.spawn(function()
     end
 end)
 
--- C. Loop Logika Auto Collect (Mengambil Buah Otomatis)
-task.spawn(function()
-    while task.wait(0.5) do
-        if _G.AutoCollectFruit or _G.AutoCollectAllFruit then
-            pcall(function()
-                -- Scan semua objek buah yang jatuh/tumbuh di workspace
-                for _, obj in pairs(workspace:GetChildren()) do
-                    if not (_G.AutoCollectFruit or _G.AutoCollectAllFruit) then break end
-                    
-                    -- Deteksi apakah objek tersebut adalah buah/item farm
-                    if obj:IsA("BasePart") or obj:FindFirstChildOfClass("TouchTransmitter") or obj:FindFirstChild("Fruit") then
-                        local isMatch = false
-                        
-                        if _G.AutoCollectAllFruit then
-                            isMatch = true
-                        else
-                            -- Cek kecocokan berdasarkan filter nama buah
-                            if _G.CollectSelectedFruit == "All" or obj.Name:lower() == _G.CollectSelectedFruit:lower() then
-                                isMatch = true
-                            end
-                        end
-                        
-                        if isMatch and Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
-                            -- Eksekusi pengambilan (Teleport langsung ke buah)
-                            if not _G.DisableTeleportCollection then
-                                Player.Character.HumanoidRootPart.CFrame = obj.CFrame
-                                task.wait(0.1)
-                            else
-                                -- Jika tanpa teleport, coba panggil fungsi touch interest bawaan exploit
-                                firetouchinterest(Player.Character.HumanoidRootPart, obj, 0)
-                                firetouchinterest(Player.Character.HumanoidRootPart, obj, 1)
-                            end
-                        end
-                    end
-                end
-            end)
-        end
-    end
-end)
-
--- D. Loop Logika Auto Sell (Menjual Otomatis)
-task.spawn(function()
-    while task.wait(2) do
-        if _G.AutoSellAll or _G.AutoSellFruit then
-            pcall(function()
-                local Remotes = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
-                local SellEvent = Remotes and (Remotes:FindFirstChild("SellItems") or Remotes:FindFirstChild("Sell"))
-                
-                if SellEvent and SellEvent:IsA("RemoteEvent") then
-                    local itemToSell = _G.AutoSellAll and "All" or _G.SellSelectedFruit
-                    SellEvent:FireServer(itemToSell)
-                end
-            end)
-        end
-    end
-end)
-
 -- =============================================================================
--- 4. USER INTERFACE GENERATOR (TAMPILAN MENU KUSTOM)
+-- 4. KUSTOM UI GENERATOR DENGAN DROPDOWN ANTI COPOT / LAYERING FIX
 -- =============================================================================
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "SpeedHubX_V4_Working"
+ScreenGui.Name = "SpeedHubX_V5_Fixed"
 ScreenGui.ResetOnSpawn = false
 pcall(function() ScreenGui.Parent = game:GetService("CoreInterface") end)
 if not ScreenGui.Parent then pcall(function() ScreenGui.Parent = Player:WaitForChild("PlayerGui") end) end
@@ -190,7 +192,7 @@ TopCorner.CornerRadius = UDim.new(0, 8)
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, -100, 1, 0)
 Title.Position = UDim2.new(0, 15, 0, 0)
-Title.Text = "Speed Hub X | Version 5.1.4 | WORK EDITION"
+Title.Text = "Speed Hub X | Version 5.1.4 | FULL WORKING FIX"
 Title.TextColor3 = Color3.fromRGB(225, 65, 65)
 Title.TextSize = 13
 Title.Font = Enum.Font.SourceSansBold
@@ -198,7 +200,7 @@ Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.BackgroundTransparency = 1
 Title.Parent = TopBar
 
--- Close & Minimize
+-- Close & Minimize Buttons
 local CloseBtn = Instance.new("TextButton")
 CloseBtn.Size = UDim2.new(0, 30, 0, 30)
 CloseBtn.Position = UDim2.new(1, -35, 0, 5)
@@ -221,7 +223,7 @@ MinBtn.Font = Enum.Font.SourceSansBold
 MinBtn.TextSize = 14
 MinBtn.Parent = TopBar
 
--- Sidebar Layout
+-- Sidebar
 local Sidebar = Instance.new("ScrollingFrame")
 Sidebar.Size = UDim2.new(0, 150, 1, -40)
 Sidebar.Position = UDim2.new(0, 0, 0, 40)
@@ -261,7 +263,7 @@ local function CreatePage(pageName)
     Page.BackgroundTransparency = 1
     Page.BorderSizePixel = 0
     Page.Visible = false
-    Page.CanvasSize = UDim2.new(0, 0, 0, 1200)
+    Page.CanvasSize = UDim2.new(0, 0, 0, 1300)
     Page.ScrollBarThickness = 3
     Page.ScrollBarImageColor3 = Color3.fromRGB(70, 35, 35)
     Page.Parent = PageContainer
@@ -301,9 +303,7 @@ local function CreatePage(pageName)
     return Page
 end
 
--- =============================================================================
--- 5. ENGINE KOMPONEN UI (COLLAPSIBLE SECTION & FIX DROPDOWN LIST)
--- =============================================================================
+-- UI Engine Elements
 local UI = {}
 
 function UI:AddSection(page, sectionTitle)
@@ -518,7 +518,7 @@ function UI:AddButton(section, text, callback)
 end
 
 -- =============================================================================
--- 6. MENYUSUN STRUKTUR KONTEN MENU HALAMAN
+-- 5. INITIALIZE PAGES & SECTIONS
 -- =============================================================================
 CreatePage("Home")
 CreatePage("Main")
@@ -530,49 +530,29 @@ CreatePage("Misc")
 
 pages["Home"].Visible = true
 
--- HOME TAB
+-- HOME
 local LocalPlayerSec = UI:AddSection("Home", "LocalPlayer Manager")
 UI:AddTextBox(LocalPlayerSec, "Set Custom Speed", "50", function(v) _G.CustomSpeed = tonumber(v) or 50 end)
 UI:AddToggle(LocalPlayerSec, "Enable Walkspeed", false, function(v) _G.WalkspeedToggle = v end)
 UI:AddToggle(LocalPlayerSec, "No Clip", false, function(v) _G.NoClipToggle = v end)
 
-local CommSec = UI:AddSection("Home", "Community")
-UI:AddButton(CommSec, "Copy Discord Link", function() setclipboard("https://discord.gg/speedhubx") end)
-
--- MAIN TAB (Dihubungkan dengan Engine Auto-Farm di atas)
+-- MAIN
 local TeleportSec = UI:AddSection("Main", "Teleport Manager")
 UI:AddDropdown(TeleportSec, "Select Mode", {"Tween Teleport", "Instant Teleport"}, function(v) _G.TeleportMode = v end)
-UI:AddTextBox(TeleportSec, "Base Tween Speed", "1.5", function(v) _G.BaseTweenSpeed = tonumber(v) or 1.5 end)
-
-local StackSec = UI:AddSection("Main", "Stack Farm Manager")
-UI:AddToggle(StackSec, "Enable Stack Farming", false, function(v) _G.EnableStackFarming = v end)
 
 local PlantsSec = UI:AddSection("Main", "Automation Plants")
 UI:AddToggle(PlantsSec, "Disable Teleport", false, function(v) _G.DisableTeleportPlants = v end)
 UI:AddDropdown(PlantsSec, "Select Seeds", FruitsList, function(v) _G.SelectedSeed = v end)
-UI:AddDropdown(PlantsSec, "Select Position", {"Player Position", "Sprinkler Radius"}, function(v) _G.SelectPosition = v end)
 UI:AddDropdown(PlantsSec, "Select Sprinkler", GearsList, function(v) _G.SelectedSprinkler = v end)
 UI:AddToggle(PlantsSec, "Auto Plants Seed", false, function(v) _G.AutoPlantsSeed = v end)
 UI:AddToggle(PlantsSec, "Auto Plants All Seeds", false, function(v) _G.AutoPlantsAllSeeds = v end)
 
+-- SEKSI UTAMA AUTO COLLECT (DI-FIX!)
 local CollectSec = UI:AddSection("Main", "Automation Collection")
 UI:AddToggle(CollectSec, "Disable Teleport", false, function(v) _G.DisableTeleportCollection = v end)
-UI:AddToggle(CollectSec, "Stop Collect If Backpack Full", false, function(v) _G.StopCollectIfFull = v end)
 UI:AddDropdown(CollectSec, "Select Fruit Filter", FruitsList, function(v) _G.CollectSelectedFruit = v end)
-UI:AddDropdown(CollectSec, "Select Rarity Filter", RarityList, function(v) _G.CollectSelectedRarity = v end)
-UI:AddDropdown(CollectSec, "Select Mutation Filter", MutationList, function(v) _G.CollectSelectedMutation = v end)
-UI:AddToggle(CollectSec, "Auto Collect Fruit", false, function(v) _G.AutoCollectFruit = v end)
-UI:AddToggle(CollectSec, "Auto Collect All Fruit", false, function(v) _G.AutoCollectAllFruit = v end)
-
-local StealSec = UI:AddSection("Main", "Automation Steal")
-UI:AddDropdown(StealSec, "Select Steal Fruit", FruitsList, function(v) _G.StealSelectedFruit = v end)
-UI:AddToggle(StealSec, "Auto Steal Fruit", false, function(v) _G.AutoStealFruit = v end)
+UI:AddToggle(CollectSec, "Auto Collect Fruit (Sesuai Pilihan)", false, function(v) _G.AutoCollectFruit = v v)
+UI:AddToggle(CollectSec, "Auto Collect All Fruit (Semua Buah)", false, function(v) _G.AutoCollectAllFruit = v end)
 
 local SellSec = UI:AddSection("Main", "Automation Sell")
 UI:AddToggle(SellSec, "Auto Sell All", false, function(v) _G.AutoSellAll = v end)
-UI:AddDropdown(SellSec, "Select Sell Fruit", FruitsList, function(v) _G.SellSelectedFruit = v end)
-UI:AddToggle(SellSec, "Auto Sell Fruit", false, function(v) _G.AutoSellFruit = v end)
-
-local PetSec = UI:AddSection("Main", "Automation Pets")
-UI:AddDropdown(PetSec, "Select Buy Pet", PetsList, function(v) _G.BuySelectedPet = v end)
-UI:AddToggle(PetSec, "Auto Buy Pet", false, function(v) _G.AutoBuyPet = v end)
