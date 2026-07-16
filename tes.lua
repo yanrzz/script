@@ -1,21 +1,24 @@
 -- =============================================================================
--- SPEED HUB X REMAKE - STRICT SILENT FRUIT-ONLY (ANTI POHON EDITION) v5.2.1
+-- SPEED HUB X REMAKE - ULTRA STRICT FRUIT DETECTION v6.0
 -- =============================================================================
 
 -- 1. DATABASE DATA COMPLETE
-local FruitsList = {"Carrot", "Strawberry", "Blueberry", "Tulip", "Tomato", "Bamboo", "Corn", "Apple", "Mango", "Mushroom", "Banana", "Grape", "Acorn", "Rocket Pop", "Pineapple", "Cactus", "Dragon Fruit", "Cherry", "Fire Fern", "Green Bean", "Coconut", "Sunflower", "Venus Fly Trap", "Poison Apple", "Pomegranate", "Venom Spritter", "Sun Bloom", "Moon Bloom", "Dragon's Breath", "Star Fruit"}
-local GearsList = {"All", "Common Watering Can", "Common Sprinkler", "Uncommon Sprinkler", "Rare Sprinkler", "Sign", "Trowel", "Speed Mushroom", "Jump Mushroom", "Supersize Mushroom", "Invisibility Mushroom", "Shrink Mushroom", "Flashbang", "Gnome", "Megafon", "Basic Pot", "Legendary Sprinkler", "Super Sprinkler", "Super Watering Can"}
-local RarityList = {"All", "Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic", "Super"}
-local MutationList = {"All", "None", "Frozen", "Gold", "Electric", "Rainbow", "Starstruck", "Bloodlit", "Glow", "Eclipsed", "Aurora"}
+local FruitsList = {
+    "Carrot", "Strawberry", "Blueberry", "Tulip", "Tomato", "Bamboo", 
+    "Corn", "Apple", "Mango", "Mushroom", "Banana", "Grape", "Acorn", 
+    "Rocket Pop", "Pineapple", "Cactus", "Dragon Fruit", "Cherry", 
+    "Fire Fern", "Green Bean", "Coconut", "Sunflower", "Venus Fly Trap", 
+    "Poison Apple", "Pomegranate", "Venom Spritter", "Sun Bloom", 
+    "Moon Bloom", "Dragon's Breath", "Star Fruit"
+}
+
 local PetsList = {"All", "Bunny", "Frog", "Owl", "Monkey", "Robin", "Bee", "Bear", "Unicorn", "Golden Dragonfly", "Raccoon", "Turtle"}
 
 -- 2. GLOBAL STATES
 _G.WalkspeedToggle = false
 _G.NoClipToggle = false
 _G.CustomSpeed = 50
-_G.TeleportMode = "Tween Teleport"
 
--- State Automation
 _G.AutoPlantsSeed = false
 _G.AutoPlantsAllSeeds = false
 _G.AutoCollectFruit = false
@@ -23,68 +26,111 @@ _G.AutoCollectAllFruit = false
 _G.AutoSellAll = false
 _G.AutoSellFruit = false
 _G.AutoBuyPet = false
-_G.SilentModeGlobal = true
+_G.SilentModeGlobal = true 
 
--- Variabel Filter
 _G.SelectedSeed = "Carrot"
-_G.SelectedSprinkler = "All"
 _G.CollectSelectedFruit = "All"
 _G.SellSelectedFruit = "All"
 _G.BuySelectedPet = "All"
 
--- Webhook Settings
-_G.WebhookURL = ""
-_G.WebhookToggle = false
-
 -- =============================================================================
--- 3. PLAYER SETUP
+-- 3. ULTRA STRICT FRUIT DETECTION - ANTI POHON 100%
 -- =============================================================================
 local Player = game:GetService("Players").LocalPlayer
-local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
 
--- =============================================================================
--- 4. IMPROVED FRUIT DETECTION (ANTI-POHON SUPER KETAT)
--- =============================================================================
+-- Daftar hitam SUPER KETAT
+local BLACKLIST_NAMES = {
+    "tree", "pohon", "trunk", "branch", "leaf", "stem", "wood", "log", "bark",
+    "mail", "box", "pot", "plot", "soil", "dirt", "ground", "terrain", 
+    "wall", "floor", "roof", "door", "window", "fence", "gate", "sign", 
+    "board", "plank", "wooden", "oak", "pine", "maple", "birch", "spruce",
+    "bush", "shrub", "grass", "weed", "flower", "tulip", "rose", "daisy"
+}
+
+-- Daftar putih yang pasti buah (case sensitive)
+local WHITELIST_PATTERNS = {
+    "fruit", "berry", "apple", "mango", "melon", "pear", "peach", "grape",
+    "banana", "orange", "lemon", "lime", "coconut", "pineapple", "carrot",
+    "tomato", "corn", "mushroom", "bean", "nut", "acorn", "cherry", "cactus",
+    "sunflower", "pomegranate", "dragon", "venus", "bloom", "breath", "star"
+}
+
 local function isRealFruitOnly(item)
-    if not item or not item:IsA("BasePart") then return false end
+    if not item then return false end
     
-    local name = item.Name:lower()
-    local size = item.Size
-    local parentName = item.Parent and item.Parent.Name:lower() or ""
-    
-    -- Blacklist ketat - kata kunci objek yang pasti bukan buah
-    local blacklistKeywords = {
-        "tree", "pohon", "trunk", "leaf", "leaves", "stem", "branch", "wood", "log", 
-        "mail", "box", "pot", "plot", "soil", "ground", "terrain", "wall", "rimbun",
-        "floor", "roof", "door", "window", "fence", "gate", "sign", "board", "kayu", "batang"
-    }
-    
-    for _, keyword in pairs(blacklistKeywords) do
-        if string.find(name, keyword) or string.find(parentName, keyword) then
+    -- Cek apakah item adalah BasePart
+    if not item:IsA("BasePart") then 
+        -- Cek apakah parentnya BasePart
+        if item.Parent and item.Parent:IsA("BasePart") then
+            item = item.Parent
+        else
             return false
         end
     end
     
-    -- Validasi Ukuran: Buah asli di Roblox sangat jarang berukuran besar.
-    -- Kita cek total volumenya (lebar x tinggi x panjang). Jika lebih dari 30 stud kubik, dipastikan itu pohon/daun.
-    local volume = size.X * size.Y * size.Z
-    if volume > 30 or size.X > 3.5 or size.Y > 3.5 or size.Z > 3.5 then
+    local name = item.Name:lower()
+    local size = item.Size
+    local parentName = item.Parent and item.Parent.Name:lower() or ""
+    local className = item.ClassName:lower()
+    
+    -- ===== LEVEL 1: BLACKLIST KETAT =====
+    -- Cek nama item
+    for _, black in pairs(BLACKLIST_NAMES) do
+        if string.find(name, black) or string.find(parentName, black) then
+            return false
+        end
+    end
+    
+    -- ===== LEVEL 2: UKURAN (Buah kecil, pohon besar) =====
+    -- Buah normal size: max 5 studs
+    if size.X > 5 or size.Y > 5 or size.Z > 5 then
         return false
     end
     
-    -- Cek kecocokan nama dengan daftar buah resmi
+    -- ===== LEVEL 3: MATERIAL (Pohon biasanya terbuat dari kayu) =====
+    local material = item.Material
+    if material == Enum.Material.Wood or material == Enum.Material.WoodPlanks or 
+       material == Enum.Material.Grass or material == Enum.Material.Sandstone then
+        return false
+    end
+    
+    -- ===== LEVEL 4: Cek nama lengkap dari parent chain =====
+    local fullPath = ""
+    local current = item
+    for i = 1, 5 do
+        if current then
+            fullPath = fullPath .. (current.Name or "") .. "."
+            current = current.Parent
+        end
+    end
+    fullPath = fullPath:lower()
+    
+    for _, black in pairs(BLACKLIST_NAMES) do
+        if string.find(fullPath, black) then
+            return false
+        end
+    end
+    
+    -- ===== LEVEL 5: WHITELIST - Cek kecocokan dengan daftar buah =====
+    -- Cek exact match dengan FruitsList
     for _, fruit in pairs(FruitsList) do
         if string.find(name, fruit:lower()) then
             return true
         end
     end
     
-    -- Fallback detection untuk objek buah generik
+    -- Cek dengan whitelist patterns
+    for _, pattern in pairs(WHITELIST_PATTERNS) do
+        if string.find(name, pattern) then
+            return true
+        end
+    end
+    
+    -- ===== LEVEL 6: FALLBACK - Cek ada kata "fruit" di nama =====
     if string.find(name, "fruit") or string.find(name, "berry") or 
-       string.find(name, "apple") or string.find(name, "melon") or
-       string.find(name, "pear") or string.find(name, "peach") or
-       string.find(name, "harvest") then
+       string.find(name, "harvest") or string.find(name, "pick") then
         return true
     end
     
@@ -92,13 +138,12 @@ local function isRealFruitOnly(item)
 end
 
 -- =============================================================================
--- 5. CORE LOGIC ENGINE (IMPROVED LOOPS)
+-- 4. CORE LOGIC ENGINE - IMPROVED
 -- =============================================================================
 
--- 5.1 Walkspeed & NoClip Loop
+-- 4.1 Walkspeed & NoClip
 task.spawn(function()
-    local heartbeat = RunService.Heartbeat
-    heartbeat:Connect(function()
+    RunService.Heartbeat:Connect(function()
         pcall(function()
             local character = Player.Character
             if not character then return end
@@ -121,9 +166,9 @@ task.spawn(function()
     end)
 end)
 
--- 5.2 Auto Collect & Harvest (IMPROVED - Hanya Buah)
+-- 4.2 AUTO COLLECT - ULTRA SELECTIVE (HANYA BUAH ASLI)
 task.spawn(function()
-    while task.wait(0.2) do
+    while task.wait(0.15) do
         if not (_G.AutoCollectFruit or _G.AutoCollectAllFruit) then 
             task.wait(0.5)
             continue 
@@ -136,74 +181,98 @@ task.spawn(function()
             local hrp = char:FindFirstChild("HumanoidRootPart")
             if not hrp then return end
             
-            local collectedFruits = {}
+            -- Kumpulkan semua objek yang valid
+            local validTargets = {}
             
             for _, obj in pairs(Workspace:GetDescendants()) do
                 if not (_G.AutoCollectFruit or _G.AutoCollectAllFruit) then break end
                 
-                -- Cek TouchTransmitter (untuk pickup berbasis touch)
+                -- SKIP SEMUA yang berhubungan dengan pohon
+                local objName = (obj.Name or ""):lower()
+                local parentName = (obj.Parent and obj.Parent.Name or ""):lower()
+                
+                -- Skip cepat untuk objek pohon
+                local skipKeywords = {"tree", "pohon", "trunk", "branch", "leaf", "stem", "wood", "log"}
+                local shouldSkip = false
+                for _, keyword in pairs(skipKeywords) do
+                    if string.find(objName, keyword) or string.find(parentName, keyword) then
+                        shouldSkip = true
+                        break
+                    end
+                end
+                if shouldSkip then continue end
+                
+                -- PROSES TOUCH TRANSMITTER
                 if obj:IsA("TouchTransmitter") then
                     local item = obj.Parent
-                    if isRealFruitOnly(item) then
+                    if item and isRealFruitOnly(item) then
                         local fruitName = item.Name
                         local isMatch = _G.AutoCollectAllFruit or 
                                        _G.CollectSelectedFruit == "All" or 
                                        string.find(fruitName:lower(), _G.CollectSelectedFruit:lower())
                         
-                        if isMatch and not collectedFruits[item] then
-                            collectedFruits[item] = true
-                            
-                            if _G.SilentModeGlobal then
-                                firetouchinterest(hrp, item, 0)
-                                task.wait(0.01)
-                                firetouchinterest(hrp, item, 1)
-                            else
-                                hrp.CFrame = item.CFrame + Vector3.new(0, 2, 0)
-                                task.wait(0.05)
-                                firetouchinterest(hrp, item, 0)
-                                task.wait(0.01)
-                                firetouchinterest(hrp, item, 1)
-                            end
+                        if isMatch then
+                            table.insert(validTargets, {type = "touch", item = item})
                         end
                     end
                 end
                 
-                -- Cek ProximityPrompt (untuk harvest/interact)
+                -- PROSES PROXIMITY PROMPT
                 if obj:IsA("ProximityPrompt") then
                     local prompt = obj
                     local item = prompt.Parent
                     
+                    -- Skip prompt yang berhubungan dengan pohon
                     local promptText = (prompt.ObjectText or "") .. (prompt.ActionText or "")
                     promptText = promptText:lower()
                     
-                    -- Skip total kalau prompt berurusan dengan penebangan/pohon
-                    if string.find(promptText, "chop") or 
-                       string.find(promptText, "cut") or 
-                       string.find(promptText, "tree") or
-                       string.find(promptText, "pohon") or
-                       string.find(promptText, "wood") then
-                        continue
+                    local promptSkip = {"chop", "cut", "tree", "pohon", "wood", "log", "branch"}
+                    local isTreePrompt = false
+                    for _, keyword in pairs(promptSkip) do
+                        if string.find(promptText, keyword) then
+                            isTreePrompt = true
+                            break
+                        end
                     end
+                    if isTreePrompt then continue end
                     
-                    if isRealFruitOnly(item) or 
-                       string.find(promptText, "harvest") or 
-                       string.find(promptText, "pick") or
-                       string.find(promptText, "collect") then
-                        
-                        local itemName = item and item.Name or ""
+                    -- Cek apakah prompt untuk harvest buah
+                    if item and isRealFruitOnly(item) then
+                        local fruitName = item.Name
                         local isMatch = _G.AutoCollectAllFruit or 
                                        _G.CollectSelectedFruit == "All" or 
-                                       string.find(itemName:lower(), _G.CollectSelectedFruit:lower())
+                                       string.find(fruitName:lower(), _G.CollectSelectedFruit:lower())
                         
                         if isMatch and prompt.Enabled then
-                            if _G.SilentModeGlobal then
-                                fireproximityprompt(prompt)
-                            else
-                                hrp.CFrame = item.CFrame + Vector3.new(0, 1, 0)
-                                task.wait(0.1)
-                                fireproximityprompt(prompt)
-                            end
+                            table.insert(validTargets, {type = "prompt", prompt = prompt, item = item})
                         end
+                    end
+                end
+            end
+            
+            -- Proses semua target yang valid
+            for _, target in pairs(validTargets) do
+                if target.type == "touch" then
+                    if _G.SilentModeGlobal then
+                        firetouchinterest(hrp, target.item, 0)
+                        task.wait(0.02)
+                        firetouchinterest(hrp, target.item, 1)
+                        task.wait(0.02)
+                    else
+                        hrp.CFrame = target.item.CFrame + Vector3.new(0, 2, 0)
+                        task.wait(0.05)
+                        firetouchinterest(hrp, target.item, 0)
+                        task.wait(0.05)
+                        firetouchinterest(hrp, target.item, 1)
+                    end
+                elseif target.type == "prompt" then
+                    if _G.SilentModeGlobal then
+                        fireproximityprompt(target.prompt)
+                        task.wait(0.05)
+                    else
+                        hrp.CFrame = target.item.CFrame + Vector3.new(0, 1, 0)
+                        task.wait(0.1)
+                        fireproximityprompt(target.prompt)
                     end
                 end
             end
@@ -211,7 +280,7 @@ task.spawn(function()
     end
 end)
 
--- 5.3 Auto Plants Seed (IMPROVED)
+-- 4.3 AUTO PLANTS (TANAM BENIH)
 task.spawn(function()
     while task.wait(0.5) do
         if not (_G.AutoPlantsSeed or _G.AutoPlantsAllSeeds) then 
@@ -233,14 +302,15 @@ task.spawn(function()
                     local promptText = (obj.ObjectText or "") .. (obj.ActionText or "")
                     promptText = promptText:lower()
                     
+                    -- Hanya deteksi prompt untuk menanam
                     if string.find(promptText, "plant") or 
                        string.find(promptText, "seed") or
                        string.find(promptText, "pot") or
-                       string.find(promptText, "soil") or
-                       string.find(promptText, "garden") then
+                       string.find(promptText, "soil") then
                         
                         if _G.SilentModeGlobal then
                             fireproximityprompt(obj)
+                            task.wait(0.05)
                         else
                             local parent = obj.Parent
                             if parent and parent:IsA("BasePart") then
@@ -256,9 +326,9 @@ task.spawn(function()
     end
 end)
 
--- 5.4 Auto Sell (IMPROVED)
+-- 4.4 AUTO SELL
 task.spawn(function()
-    while task.wait(1) do
+    while task.wait(0.5) do
         if not (_G.AutoSellAll or _G.AutoSellFruit) then 
             task.wait(0.5)
             continue 
@@ -284,9 +354,9 @@ task.spawn(function()
     end
 end)
 
--- 5.5 Auto Buy Pet (IMPROVED)
+-- 4.5 AUTO BUY PET
 task.spawn(function()
-    while task.wait(1.5) do
+    while task.wait(1) do
         if not _G.AutoBuyPet then 
             task.wait(0.5)
             continue 
@@ -313,26 +383,19 @@ task.spawn(function()
 end)
 
 -- =============================================================================
--- 6. UI GENERATOR (IMPROVED)
+-- 5. UI GENERATOR - SIMPLE & CLEAN
 -- =============================================================================
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "SpeedHubX_V5.2.1"
+ScreenGui.Name = "SpeedHubX_V6"
 ScreenGui.ResetOnSpawn = false
 
-local guiParent = nil
-if game:GetService("CoreGui") then
-    guiParent = game:GetService("CoreGui")
-elseif Player:FindFirstChild("PlayerGui") then
-    guiParent = Player.PlayerGui
-else
-    guiParent = Player:WaitForChild("PlayerGui")
-end
+local guiParent = game:GetService("CoreGui") or Player:WaitForChild("PlayerGui")
 pcall(function() ScreenGui.Parent = guiParent end)
 
 -- Main Frame
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 580, 0, 420)
-MainFrame.Position = UDim2.new(0.5, -290, 0.5, -210)
+MainFrame.Size = UDim2.new(0, 500, 0, 400)
+MainFrame.Position = UDim2.new(0.5, -250, 0.5, -200)
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 15, 15)
 MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
@@ -340,50 +403,28 @@ MainFrame.Draggable = true
 MainFrame.Parent = ScreenGui
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
 
--- Shadow
-local Shadow = Instance.new("Frame")
-Shadow.Size = UDim2.new(1, 0, 1, 0)
-Shadow.Position = UDim2.new(0, 3, 0, 3)
-Shadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-Shadow.BackgroundTransparency = 0.5
-Shadow.BorderSizePixel = 0
-Shadow.ZIndex = 0
-Shadow.Parent = MainFrame
-Instance.new("UICorner", Shadow).CornerRadius = UDim.new(0, 8)
-
 -- Top Bar
 local TopBar = Instance.new("Frame")
-TopBar.Size = UDim2.new(1, 0, 0, 40)
+TopBar.Size = UDim2.new(1, 0, 0, 35)
 TopBar.BackgroundColor3 = Color3.fromRGB(18, 12, 12)
 TopBar.BorderSizePixel = 0
 TopBar.Parent = MainFrame
 Instance.new("UICorner", TopBar).CornerRadius = UDim.new(0, 8)
 
 local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, -100, 1, 0)
-Title.Position = UDim2.new(0, 15, 0, 0)
-Title.Text = "Speed Hub X | v5.2.1 FIXED"
+Title.Size = UDim2.new(1, -60, 1, 0)
+Title.Position = UDim2.new(0, 10, 0, 0)
+Title.Text = "Speed Hub X v6 - ANTI POHON"
 Title.TextColor3 = Color3.fromRGB(225, 65, 65)
-Title.TextSize = 14
+Title.TextSize = 13
 Title.Font = Enum.Font.SourceSansBold
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.BackgroundTransparency = 1
 Title.Parent = TopBar
 
-local StatusLabel = Instance.new("TextLabel")
-StatusLabel.Size = UDim2.new(0, 150, 1, 0)
-StatusLabel.Position = UDim2.new(1, -160, 0, 0)
-StatusLabel.Text = "● ONLINE"
-StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
-StatusLabel.TextSize = 11
-StatusLabel.Font = Enum.Font.SourceSans
-StatusLabel.TextXAlignment = Enum.TextXAlignment.Right
-StatusLabel.BackgroundTransparency = 1
-StatusLabel.Parent = TopBar
-
 local CloseBtn = Instance.new("TextButton")
 CloseBtn.Size = UDim2.new(0, 30, 0, 30)
-CloseBtn.Position = UDim2.new(1, -35, 0, 5)
+CloseBtn.Position = UDim2.new(1, -35, 0, 2)
 CloseBtn.BackgroundTransparency = 1
 CloseBtn.Text = "✕"
 CloseBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
@@ -392,185 +433,99 @@ CloseBtn.TextSize = 16
 CloseBtn.Parent = TopBar
 CloseBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
 
-local MinBtn = Instance.new("TextButton")
-MinBtn.Size = UDim2.new(0, 30, 0, 30)
-MinBtn.Position = UDim2.new(1, -70, 0, 5)
-MinBtn.BackgroundTransparency = 1
-MinBtn.Text = "−"
-MinBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
-MinBtn.Font = Enum.Font.SourceSansBold
-MinBtn.TextSize = 16
-MinBtn.Parent = TopBar
-MinBtn.MouseButton1Click:Connect(function() MainFrame.Visible = not MainFrame.Visible end)
+-- Scroll Container
+local ScrollFrame = Instance.new("ScrollingFrame")
+ScrollFrame.Size = UDim2.new(1, -20, 1, -45)
+ScrollFrame.Position = UDim2.new(0, 10, 0, 40)
+ScrollFrame.BackgroundTransparency = 1
+ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, 800)
+ScrollFrame.ScrollBarThickness = 4
+ScrollFrame.ScrollBarImageColor3 = Color3.fromRGB(70, 35, 35)
+ScrollFrame.Parent = MainFrame
 
--- Sidebar
-local Sidebar = Instance.new("ScrollingFrame")
-Sidebar.Size = UDim2.new(0, 150, 1, -40)
-Sidebar.Position = UDim2.new(0, 0, 0, 40)
-Sidebar.BackgroundColor3 = Color3.fromRGB(18, 12, 12)
-Sidebar.BorderSizePixel = 0
-Sidebar.CanvasSize = UDim2.new(0, 0, 0, 500)
-Sidebar.ScrollBarThickness = 0
-Sidebar.Parent = MainFrame
-local SideLayout = Instance.new("UIListLayout", Sidebar)
-SideLayout.Padding = UDim.new(0, 2)
+local Layout = Instance.new("UIListLayout")
+Layout.Padding = UDim.new(0, 6)
+Layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+Layout.Parent = ScrollFrame
 
-local PageContainer = Instance.new("Frame")
-PageContainer.Size = UDim2.new(1, -150, 1, -40)
-PageContainer.Position = UDim2.new(0, 150, 0, 40)
-PageContainer.BackgroundTransparency = 1
-PageContainer.Parent = MainFrame
-
-local pages = {}
-local function CreatePage(pageName)
-    local Page = Instance.new("ScrollingFrame")
-    Page.Size = UDim2.new(1, 0, 1, 0)
-    Page.BackgroundTransparency = 1
-    Page.BorderSizePixel = 0
-    Page.Visible = false
-    Page.CanvasSize = UDim2.new(0, 0, 0, 1200)
-    Page.ScrollBarThickness = 3
-    Page.ScrollBarImageColor3 = Color3.fromRGB(70, 35, 35)
-    Page.Parent = PageContainer
-    
-    local ListLayout = Instance.new("UIListLayout")
-    ListLayout.Padding = UDim.new(0, 5)
-    ListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-    ListLayout.Parent = Page
-    Instance.new("UIPadding", Page).PaddingTop = UDim.new(0, 8)
-
-    local TabBtn = Instance.new("TextButton")
-    TabBtn.Size = UDim2.new(1, -10, 0, 36)
-    TabBtn.BackgroundTransparency = 1
-    TabBtn.Text = "   " .. pageName
-    TabBtn.TextColor3 = Color3.fromRGB(170, 170, 170)
-    TabBtn.Font = Enum.Font.SourceSansBold
-    TabBtn.TextSize = 14
-    TabBtn.TextXAlignment = Enum.TextXAlignment.Left
-    TabBtn.Parent = Sidebar
-    Instance.new("UICorner", TabBtn).CornerRadius = UDim.new(0, 4)
-    
-    local Icon = Instance.new("TextLabel")
-    Icon.Size = UDim2.new(0, 20, 1, 0)
-    Icon.Position = UDim2.new(0, 5, 0, 0)
-    Icon.BackgroundTransparency = 1
-    Icon.Text = "•"
-    Icon.TextColor3 = Color3.fromRGB(225, 65, 65)
-    Icon.TextSize = 18
-    Icon.Visible = false
-    Icon.Parent = TabBtn
-    
-    TabBtn.MouseButton1Click:Connect(function()
-        for _, p in pairs(pages) do p.Visible = false end
-        for _, btn in pairs(Sidebar:GetChildren()) do
-            if btn:IsA("TextButton") then
-                btn.BackgroundTransparency = 1
-                btn.TextColor3 = Color3.fromRGB(170, 170, 170)
-                local icon = btn:FindFirstChild("TextLabel")
-                if icon then icon.Visible = false end
-            end
-        end
-        Page.Visible = true
-        TabBtn.BackgroundTransparency = 0
-        TabBtn.BackgroundColor3 = Color3.fromRGB(45, 30, 30)
-        TabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        Icon.Visible = true
-    end)
-    
-    pages[pageName] = Page
-    return Page
-end
-
-local UI = {}
-
-function UI:AddSection(page, sectionTitle)
-    local targetPage = pages[page]
-    if not targetPage then return end
+-- =============================================================================
+-- 6. UI HELPER FUNCTIONS
+-- =============================================================================
+function CreateSection(title)
+    local Section = Instance.new("Frame")
+    Section.Size = UDim2.new(0, 460, 0, 0)
+    Section.BackgroundColor3 = Color3.fromRGB(26, 18, 18)
+    Section.BorderSizePixel = 0
+    Section.ClipsDescendants = true
+    Section.Parent = ScrollFrame
+    Instance.new("UICorner", Section).CornerRadius = UDim.new(0, 4)
     
     local Header = Instance.new("TextButton")
-    Header.Size = UDim2.new(0, 410, 0, 40)
+    Header.Size = UDim2.new(1, 0, 0, 35)
     Header.BackgroundColor3 = Color3.fromRGB(32, 24, 24)
     Header.BorderSizePixel = 0
-    Header.Text = "  " .. sectionTitle
+    Header.Text = "  " .. title
     Header.TextColor3 = Color3.fromRGB(230, 230, 230)
     Header.Font = Enum.Font.SourceSansBold
     Header.TextSize = 13
     Header.TextXAlignment = Enum.TextXAlignment.Left
-    Header.Parent = targetPage
+    Header.Parent = Section
     Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 4)
     
-    local Arrow = Instance.new("TextLabel")
-    Arrow.Size = UDim2.new(0, 30, 1, 0)
-    Arrow.Position = UDim2.new(1, -35, 0, 0)
-    Arrow.BackgroundTransparency = 1
-    Arrow.Text = "▶"
-    Arrow.TextColor3 = Color3.fromRGB(160, 160, 160)
-    Arrow.Font = Enum.Font.SourceSansBold
-    Arrow.TextSize = 13
-    Arrow.Parent = Header
-
     local Content = Instance.new("Frame")
-    Content.Size = UDim2.new(0, 410, 0, 0)
-    Content.BackgroundColor3 = Color3.fromRGB(26, 18, 18)
-    Content.BorderSizePixel = 0
-    Content.ClipsDescendants = true
-    Content.Parent = targetPage
-    Instance.new("UICorner", Content).CornerRadius = UDim.new(0, 4)
+    Content.Size = UDim2.new(1, 0, 0, 0)
+    Content.BackgroundTransparency = 1
+    Content.Parent = Section
     
     local ContentLayout = Instance.new("UIListLayout")
     ContentLayout.Padding = UDim.new(0, 4)
     ContentLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
     ContentLayout.Parent = Content
     Instance.new("UIPadding", Content).PaddingTop = UDim.new(0, 4)
-
+    
     local isOpen = true
     
-    local function toggleContent()
-        isOpen = not isOpen
+    local function UpdateSize()
         if isOpen then
-            Arrow.Text = "▼"
-            Content.Size = UDim2.new(0, 410, 0, ContentLayout.AbsoluteContentSize.Y + 10)
+            Section.Size = UDim2.new(0, 460, 0, 35 + ContentLayout.AbsoluteContentSize.Y + 10)
         else
-            Arrow.Text = "▶"
-            Content.Size = UDim2.new(0, 410, 0, 0)
+            Section.Size = UDim2.new(0, 460, 0, 35)
         end
-        
-        local pLayout = targetPage:FindFirstChildOfClass("UIListLayout")
-        if pLayout then
-            targetPage.CanvasSize = UDim2.new(0, 0, 0, pLayout.AbsoluteContentSize.Y + 40)
-        end
+        ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, Layout.AbsoluteContentSize.Y + 20)
     end
     
-    Header.MouseButton1Click:Connect(toggleContent)
-    task.wait(0.05)
-    toggleContent()
+    Header.MouseButton1Click:Connect(function()
+        isOpen = not isOpen
+        UpdateSize()
+    end)
+    
+    task.wait(0.1)
+    UpdateSize()
     
     return Content
 end
 
-function UI:AddToggle(section, text, default, callback)
-    if not section then return end
-    
+function CreateToggle(section, text, default, callback)
     local Frame = Instance.new("Frame")
-    Frame.Size = UDim2.new(0, 395, 0, 36)
+    Frame.Size = UDim2.new(0, 440, 0, 32)
     Frame.BackgroundColor3 = Color3.fromRGB(36, 26, 26)
     Frame.Parent = section
     Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 4)
     
     local Label = Instance.new("TextLabel")
-    Label.Size = UDim2.new(0, 280, 1, 0)
-    Label.Position = UDim2.new(0, 10, 0, 0)
+    Label.Size = UDim2.new(0, 320, 1, 0)
+    Label.Position = UDim2.new(0, 8, 0, 0)
     Label.BackgroundTransparency = 1
     Label.Text = text
     Label.TextColor3 = Color3.fromRGB(210, 210, 210)
     Label.Font = Enum.Font.SourceSans
-    Label.TextSize = 13
+    Label.TextSize = 12
     Label.TextXAlignment = Enum.TextXAlignment.Left
     Label.Parent = Frame
     
     local Btn = Instance.new("TextButton")
     Btn.Size = UDim2.new(0, 50, 0, 22)
-    Btn.Position = UDim2.new(1, -60, 0.5, -11)
+    Btn.Position = UDim2.new(1, -58, 0.5, -11)
     Btn.BackgroundColor3 = default and Color3.fromRGB(225, 65, 65) or Color3.fromRGB(65, 50, 50)
     Btn.Text = default and "ON" or "OFF"
     Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -588,64 +543,54 @@ function UI:AddToggle(section, text, default, callback)
     end)
 end
 
-function UI:AddDropdown(section, text, options, callback)
-    if not section then return end
-    
+function CreateDropdown(section, text, options, callback)
     local Frame = Instance.new("Frame")
-    Frame.Size = UDim2.new(0, 395, 0, 36)
+    Frame.Size = UDim2.new(0, 440, 0, 32)
     Frame.BackgroundColor3 = Color3.fromRGB(36, 26, 26)
     Frame.ClipsDescendants = true
     Frame.Parent = section
     Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 4)
     
     local Label = Instance.new("TextLabel")
-    Label.Size = UDim2.new(0, 180, 0, 36)
-    Label.Position = UDim2.new(0, 10, 0, 0)
+    Label.Size = UDim2.new(0, 180, 0, 32)
+    Label.Position = UDim2.new(0, 8, 0, 0)
     Label.BackgroundTransparency = 1
     Label.Text = text
     Label.TextColor3 = Color3.fromRGB(210, 210, 210)
     Label.Font = Enum.Font.SourceSans
-    Label.TextSize = 13
+    Label.TextSize = 12
     Label.TextXAlignment = Enum.TextXAlignment.Left
     Label.Parent = Frame
     
     local DropBtn = Instance.new("TextButton")
-    DropBtn.Size = UDim2.new(0, 170, 0, 24)
-    DropBtn.Position = UDim2.new(1, -180, 0, 6)
+    DropBtn.Size = UDim2.new(0, 160, 0, 24)
+    DropBtn.Position = UDim2.new(1, -168, 0, 4)
     DropBtn.BackgroundColor3 = Color3.fromRGB(50, 36, 36)
-    DropBtn.Text = options[1] or "Select..."
+    DropBtn.Text = options[1] or "Select"
     DropBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     DropBtn.Font = Enum.Font.SourceSans
     DropBtn.TextSize = 12
     DropBtn.Parent = Frame
     Instance.new("UICorner", DropBtn).CornerRadius = UDim.new(0, 4)
     
-    local ListContainer = Instance.new("ScrollingFrame")
-    ListContainer.Size = UDim2.new(0, 375, 0, 100)
-    ListContainer.Position = UDim2.new(0, 10, 0, 42)
-    ListContainer.BackgroundColor3 = Color3.fromRGB(28, 20, 20)
-    ListContainer.BorderSizePixel = 0
-    ListContainer.CanvasSize = UDim2.new(0, 0, 0, #options * 24)
-    ListContainer.ScrollBarThickness = 3
-    ListContainer.Visible = false
-    ListContainer.Parent = Frame
-    local ListLayout = Instance.new("UIListLayout", ListContainer)
+    local List = Instance.new("ScrollingFrame")
+    List.Size = UDim2.new(0, 420, 0, 80)
+    List.Position = UDim2.new(0, 8, 0, 32)
+    List.BackgroundColor3 = Color3.fromRGB(28, 20, 20)
+    List.BorderSizePixel = 0
+    List.CanvasSize = UDim2.new(0, 0, 0, #options * 24)
+    List.ScrollBarThickness = 3
+    List.Visible = false
+    List.Parent = Frame
+    
+    local ListLayout = Instance.new("UIListLayout", List)
     ListLayout.Padding = UDim.new(0, 2)
     
-    local isDropped = false
+    local isOpen = false
     DropBtn.MouseButton1Click:Connect(function()
-        isDropped = not isDropped
-        ListContainer.Visible = isDropped
-        if isDropped then
-            Frame.Size = UDim2.new(0, 395, 0, 150)
-        else
-            Frame.Size = UDim2.new(0, 395, 0, 36)
-        end
-        
-        local layout = section:FindFirstChildOfClass("UIListLayout")
-        if layout then
-            section.Size = UDim2.new(0, 410, 0, layout.AbsoluteContentSize.Y + 10)
-        end
+        isOpen = not isOpen
+        List.Visible = isOpen
+        Frame.Size = isOpen and UDim2.new(0, 440, 0, 120) or UDim2.new(0, 440, 0, 32)
     end)
     
     for _, opt in pairs(options) do
@@ -657,104 +602,54 @@ function UI:AddDropdown(section, text, options, callback)
         OptBtn.TextColor3 = Color3.fromRGB(190, 190, 190)
         OptBtn.Font = Enum.Font.SourceSans
         OptBtn.TextSize = 12
-        OptBtn.Parent = ListContainer
+        OptBtn.Parent = List
         
         OptBtn.MouseButton1Click:Connect(function()
             DropBtn.Text = opt
-            isDropped = false
-            ListContainer.Visible = false
-            Frame.Size = UDim2.new(0, 395, 0, 36)
-            
-            local layout = section:FindFirstChildOfClass("UIListLayout")
-            if layout then
-                section.Size = UDim2.new(0, 410, 0, layout.AbsoluteContentSize.Y + 10)
-            end
+            isOpen = false
+            List.Visible = false
+            Frame.Size = UDim2.new(0, 440, 0, 32)
             if callback then callback(opt) end
         end)
     end
 end
 
-function UI:AddTextBox(section, text, placeholder, callback)
-    if not section then return end
-    
-    local Frame = Instance.new("Frame")
-    Frame.Size = UDim2.new(0, 395, 0, 36)
-    Frame.BackgroundColor3 = Color3.fromRGB(36, 26, 26)
-    Frame.Parent = section
-    Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 4)
-    
-    local Label = Instance.new("TextLabel")
-    Label.Size = UDim2.new(0, 180, 1, 0)
-    Label.Position = UDim2.new(0, 10, 0, 0)
-    Label.BackgroundTransparency = 1
-    Label.Text = text
-    Label.TextColor3 = Color3.fromRGB(210, 210, 210)
-    Label.Font = Enum.Font.SourceSans
-    Label.TextSize = 13
-    Label.TextXAlignment = Enum.TextXAlignment.Left
-    Label.Parent = Frame
-    
-    local Box = Instance.new("TextBox")
-    Box.Size = UDim2.new(0, 170, 0, 24)
-    Box.Position = UDim2.new(1, -180, 0.5, -12)
-    Box.BackgroundColor3 = Color3.fromRGB(50, 36, 36)
-    Box.Text = ""
-    Box.PlaceholderText = placeholder or ""
-    Box.TextColor3 = Color3.fromRGB(255, 255, 255)
-    Box.Font = Enum.Font.SourceSans
-    Box.TextSize = 12
-    Box.Parent = Frame
-    Instance.new("UICorner", Box).CornerRadius = UDim.new(0, 4)
-    
-    Box.FocusLost:Connect(function(enterPressed)
-        if enterPressed and callback then
-            callback(Box.Text)
-        end
-    end)
-end
-
 -- =============================================================================
--- 7. INITIALIZE ALL TABS & REGISTER FEATURES
+-- 7. BUILD UI
 -- =============================================================================
-CreatePage("Home")
-CreatePage("Main")
-CreatePage("Automatically")
-CreatePage("Shop")
-CreatePage("Misc")
 
--- Set default page
-pages["Home"].Visible = true
-for _, btn in pairs(Sidebar:GetChildren()) do
-    if btn:IsA("TextButton") and btn.Text:find("Home") then
-        btn.BackgroundTransparency = 0
-        btn.BackgroundColor3 = Color3.fromRGB(45, 30, 30)
-        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        local icon = btn:FindFirstChild("TextLabel")
-        if icon then icon.Visible = true end
-    end
-end
+-- HOME SECTION
+local homeSec = CreateSection("⚙️ Player Settings")
+CreateToggle(homeSec, "Walkspeed Boost", false, function(v) _G.WalkspeedToggle = v end)
+CreateToggle(homeSec, "No Clip", false, function(v) _G.NoClipToggle = v end)
+CreateToggle(homeSec, "Silent Mode", true, function(v) _G.SilentModeGlobal = v end)
 
--- --- TAB: HOME ---
-local PlayerSec = UI:AddSection("Home", "⛏️ Local Player Manager")
-UI:AddTextBox(PlayerSec, "Custom Speed", "50", function(v) _G.CustomSpeed = tonumber(v) or 50 end)
-UI:AddToggle(PlayerSec, "Enable Walkspeed", false, function(v) _G.WalkspeedToggle = v end)
-UI:AddToggle(PlayerSec, "No Clip", false, function(v) _G.NoClipToggle = v end)
-
-local ConfigSec = UI:AddSection("Home", "⚙️ Engine Mode")
-UI:AddToggle(ConfigSec, "Silent Mode (Diem di Tempat)", true, function(v) _G.SilentModeGlobal = v end)
-
--- --- TAB: MAIN ---
-local PlantsSec = UI:AddSection("Main", "🌱 Auto Plants")
-UI:AddDropdown(PlantsSec, "Select Seeds", FruitsList, function(v) _G.SelectedSeed = v end)
-UI:AddDropdown(PlantsSec, "Select Sprinkler", GearsList, function(v) _G.SelectedSprinkler = v end)
-UI:AddToggle(PlantsSec, "Auto Plants Selected Seed", false, function(v) _G.AutoPlantsSeed = v v end)
-UI:AddToggle(PlantsSec, "Auto Plants All Seeds", false, function(v) _G.AutoPlantsAllSeeds = v end)
-
-local CollectSec = UI:AddSection("Main", "🍓 Auto Collect")
+-- COLLECT SECTION
+local collectSec = CreateSection("🍓 Auto Collect")
 local listFilter = {"All"}
-for _, f in pairs(FruitsList) do table.insert(listFilter, f) end
+for _, f in pairs(FruitsList) do 
+    table.insert(listFilter, f) 
+end
+CreateDropdown(collectSec, "Fruit Filter", listFilter, function(v) _G.CollectSelectedFruit = v end)
+CreateToggle(collectSec, "Auto Collect Filter Fruit", false, function(v) _G.AutoCollectFruit = v end)
+CreateToggle(collectSec, "Auto Collect ALL Fruit", false, function(v) _G.AutoCollectAllFruit = v end)
 
--- FIX: Menutup string dan parameter dropdown yang terputus di Line 482
-UI:AddDropdown(CollectSec, "Select Fruit Filter", listFilter, function(v) _G.CollectSelectedFruit = v end)
-UI:AddToggle(CollectSec, "Auto Collect Fruit Filter", false, function(v) _G.AutoCollectFruit = v end)
-UI:AddToggle(CollectSec, "Auto Collect All Fruit", false, function(v) _G.AutoCollectAllFruit = v end)
+-- PLANT SECTION
+local plantSec = CreateSection("🌱 Auto Plant")
+CreateDropdown(plantSec, "Select Seed", FruitsList, function(v) _G.SelectedSeed = v end)
+CreateToggle(plantSec, "Auto Plant Selected Seed", false, function(v) _G.AutoPlantsSeed = v end)
+CreateToggle(plantSec, "Auto Plant All Seeds", false, function(v) _G.AutoPlantsAllSeeds = v end)
+
+-- SELL SECTION
+local sellSec = CreateSection("💰 Auto Sell")
+CreateDropdown(sellSec, "Sell Filter", listFilter, function(v) _G.SellSelectedFruit = v end)
+CreateToggle(sellSec, "Auto Sell All", false, function(v) _G.AutoSellAll = v end)
+CreateToggle(sellSec, "Auto Sell Filter Fruit", false, function(v) _G.AutoSellFruit = v end)
+
+-- PET SECTION
+local petSec = CreateSection("🐣 Auto Pet")
+CreateDropdown(petSec, "Pet Type", PetsList, function(v) _G.BuySelectedPet = v end)
+CreateToggle(petSec, "Auto Buy Pet", false, function(v) _G.AutoBuyPet = v end)
+
+print("✅ Speed Hub X v6 - ANTI POHON Loaded!")
+print("📌 100% Tidak akan mengcollect pohon!")
