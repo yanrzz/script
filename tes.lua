@@ -1,5 +1,5 @@
 -- =============================================================================
--- SPEED HUB X v13.0 - ANTI-GUILD BUG & PRECISION SHOPPING EDITION
+-- SPEED HUB X v14.0 - PRECISION GREEN COIN BUTTON & FIX AUTO SELL EDITION
 -- =============================================================================
 
 -- 1. DATABASE ITEM
@@ -108,7 +108,7 @@ local function pressButton(btn)
 end
 
 -- =============================================================================
--- DETEKSI UI & TOMBOL PRESTISIUS (ANTI SALAH KLIK / ANTI-GUILD)
+-- DETEKSI UI & TOMBOL PRESTISIUS (ANTI-GUILD & TARGET SPESIFIK TOMBOL HIJAU)
 -- =============================================================================
 
 -- Dapatkan Tombol Menu Navigasi Atas (Pilih Bijian, Taman, Jual)
@@ -143,15 +143,18 @@ local function getSeedShopFrame()
     return nil
 end
 
--- Dapatkan Frame Utama Jual
+-- Dapatkan Frame Utama Jual (Dengan Filter Ukuran agar Tidak Salah Deteksi)
 local function getSellFrame()
     for _, v in pairs(Player.PlayerGui:GetDescendants()) do
         if (v:IsA("Frame") or v:IsA("ImageLabel") or v:IsA("CanvasGroup")) and v.Visible then
-            for _, child in pairs(v:GetChildren()) do
-                if child:IsA("TextLabel") and (string.find(string.lower(child.Text), "jual") or string.find(string.lower(child.Text), "sell")) then
-                    -- Hindari mendeteksi tombol navigasi atas sebagai frame utama toko
-                    if not child.Parent:IsA("GuiButton") then
-                        return v
+            -- Frame utama toko jual biasanya berukuran besar, minimal 200x200 pixel
+            if v.AbsoluteSize.X > 200 and v.AbsoluteSize.Y > 200 then
+                for _, child in pairs(v:GetChildren()) do
+                    if child:IsA("TextLabel") and (string.find(string.lower(child.Text), "jual") or string.find(string.lower(child.Text), "sell")) then
+                        -- Hindari mendeteksi tombol navigasi atas sebagai frame utama toko
+                        if not child.Parent:IsA("GuiButton") then
+                            return v
+                        end
                     end
                 end
             end
@@ -160,37 +163,84 @@ local function getSellFrame()
     return nil
 end
 
--- Cari Tombol Beli Utama di Bagian Bawah Frame Toko Benih
-local function getBuyButton(shopFrame)
-    -- Pertama, cari tombol yang memiliki teks beli/stok
+-- Deteksi Apakah Stok Benih Sedang Habis
+local function isOutOfStock(shopFrame)
+    for _, child in pairs(shopFrame:GetDescendants()) do
+        if child:IsA("TextLabel") or child:IsA("TextButton") then
+            local text = string.lower(child.Text)
+            if string.find(text, "tidak ada stok") or string.find(text, "out of stock") or string.find(text, "habis") or string.find(text, "no stock") then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+-- Dapatkan Tombol Beli Koin Hijau (Aman dari Tombol Robux & Tombol Lain)
+local function getCoinBuyButton(shopFrame)
+    local candidates = {}
+    
+    -- Cari semua GuiButton di area bawah frame toko benih (bukan di dalam list item/ScrollingFrame)
     for _, child in pairs(shopFrame:GetDescendants()) do
         if child:IsA("GuiButton") and child.Visible then
-            if not child:FindFirstAncestorOfClass("ScrollingFrame") and child.Name ~= "Close" then
-                local text = ""
-                if child:IsA("TextButton") then text = string.lower(child.Text) end
-                for _, c in pairs(child:GetChildren()) do
-                    if c:IsA("TextLabel") then text = text .. " " .. string.lower(c.Text) end
-                end
-                
-                if string.find(text, "beli") or string.find(text, "buy") or 
-                   string.find(text, "stok") or string.find(text, "stock") or 
-                   string.find(text, "tidak ada") then
-                    return child
+            local inScroll = child:FindFirstAncestorOfClass("ScrollingFrame")
+            local cName = string.lower(child.Name)
+            if not inScroll and cName ~= "close" and not string.find(cName, "refill") and not string.find(cName, "isi") then
+                -- Batasi hanya pada area setengah bawah frame toko benih
+                if child.AbsolutePosition.Y > (shopFrame.AbsolutePosition.Y + (shopFrame.AbsoluteSize.Y * 0.5)) then
+                    table.insert(candidates, child)
                 end
             end
         end
     end
     
-    -- Fallback: Jika tidak ketemu dari teks, cari tombol apa saja di area bawah bingkai toko
-    for _, child in pairs(shopFrame:GetDescendants()) do
-        if child:IsA("GuiButton") and child.Visible then
-            if not child:FindFirstAncestorOfClass("ScrollingFrame") and child.Name ~= "Close" and child.Name ~= "Isi Ulang" and child.Name ~= "Refill" then
-                if child.AbsolutePosition.Y > (shopFrame.AbsolutePosition.Y + (shopFrame.AbsoluteSize.Y / 2)) then
-                    return child
-                end
+    -- Saring tombol Robux agar tidak terpilih
+    local coinCandidates = {}
+    for _, btn in ipairs(candidates) do
+        local isRobux = false
+        local text = ""
+        if btn:IsA("TextButton") then text = string.lower(btn.Text) end
+        for _, label in pairs(btn:GetDescendants()) do
+            if label:IsA("TextLabel") then
+                text = text .. " " .. string.lower(label.Text)
             end
         end
+        
+        -- Cek teks robux atau r$
+        if string.find(text, "robux") or string.find(text, "r$") or string.find(string.lower(btn.Name), "robux") then
+            isRobux = true
+        end
+        
+        -- Cek icon robux
+        for _, img in pairs(btn:GetDescendants()) do
+            if img:IsA("ImageLabel") and (string.find(string.lower(img.Image), "robux") or string.find(img.Image, "13079943209")) then
+                isRobux = true
+            end
+        end
+        
+        if not isRobux then
+            table.insert(coinCandidates, btn)
+        end
     end
+    
+    -- Urutkan dari kiri ke kanan (X terkecil). Tombol koin hijau selalu di sebelah kiri tombol Robux!
+    if #coinCandidates > 1 then
+        table.sort(coinCandidates, function(a, b)
+            return a.AbsolutePosition.X < b.AbsolutePosition.X
+        end)
+        return coinCandidates[1]
+    elseif #coinCandidates == 1 then
+        return coinCandidates[1]
+    end
+    
+    -- Jika penyaringan ketat gagal, ambil kandidat pertama dari daftar awal yang posisinya paling kiri
+    if #candidates > 0 then
+        table.sort(candidates, function(a, b)
+            return a.AbsolutePosition.X < b.AbsolutePosition.X
+        end)
+        return candidates[1]
+    end
+    
     return nil
 end
 
@@ -303,7 +353,7 @@ task.spawn(function()
     end
 end)
 
--- Loop Toko & Jual NPC (Setiap 0.8 Detik) - TEROPTIMALISASI TANPA BUG
+-- Loop Toko & Jual NPC (Setiap 0.8 Detik) - ANTI-BUG & SUPER PRESISI
 task.spawn(function()
     while task.wait(0.8) do
         -- A. AUTO BUY SEEDS (STRICTLY IN TOKO BENIH FRAME ONLY)
@@ -366,26 +416,19 @@ task.spawn(function()
                                 task.wait(0.2)
                             end
 
-                            -- 2. Deteksi Tombol Beli di Bagian Bawah Frame Toko Benih
-                            local buyBtn = getBuyButton(seedShopFrame)
-                            if buyBtn then
-                                local btnText = ""
-                                if buyBtn:IsA("TextButton") then btnText = string.lower(buyBtn.Text) end
-                                for _, c in pairs(buyBtn:GetChildren()) do
-                                    if c:IsA("TextLabel") then btnText = btnText .. " " .. string.lower(c.Text) end
-                                end
-
-                                -- Saring stok: Jangan tekan kalau tidak ada stok!
-                                if string.find(btnText, "tidak ada stok") or string.find(btnText, "no stock") or string.find(btnText, "out of stock") then
-                                    -- Lewati pembelian item ini
-                                else
+                            -- 2. Cek Stok Terlebih Dahulu Sebelum Beli
+                            if isOutOfStock(seedShopFrame) then
+                                -- Lewati jika tidak ada stok
+                            else
+                                -- 3. Deteksi Tombol Beli Hijau (Koin) menggunakan Posisi & Seleksi Teks Koin
+                                local buyBtn = getCoinBuyButton(seedShopFrame)
+                                if buyBtn then
                                     pressButton(buyBtn)
-                                    task.wait(0.2)
+                                    task.wait(0.25)
 
-                                    -- Konfirmasi Pembelian (Hanya yang muncul, aman dari tombol Guild)
+                                    -- Konfirmasi Pembelian (Hanya jika dialog konfirmasi non-Guild muncul)
                                     for _, confirmBtn in pairs(Player.PlayerGui:GetDescendants()) do
                                         if confirmBtn:IsA("GuiButton") and confirmBtn.Visible then
-                                            -- Pastikan dialog konfirmasi bukan bagian dari menu Guild
                                             local isGuild = false
                                             local parent = confirmBtn.Parent
                                             while parent and parent ~= Player.PlayerGui do
@@ -431,7 +474,7 @@ task.spawn(function()
                 if prompt then
                     local char = Player.Character
                     if char and char:FindFirstChild("HumanoidRootPart") then
-                        -- Berdiri sedikit di atas/depan rak alat agar tidak tersangkut di dalam meja toko
+                        -- Berdiri sedikit di atas rak alat agar tidak tersangkut di dalam meja toko
                         char.HumanoidRootPart.CFrame = prompt.Parent:GetPivot() * CFrame.new(0, 1.5, 1)
                         task.wait(0.25)
                         triggerPrompt(prompt)
@@ -465,7 +508,8 @@ task.spawn(function()
                             end
                             
                             if string.find(text, "jual semua") or string.find(text, "sell all") or 
-                               string.find(text, "jual inventaris") or string.find(text, "sell inventory") then
+                               string.find(text, "jual inventaris") or string.find(text, "sell inventory") or
+                               (string.find(text, "jual") and string.find(text, "semua")) then
                                 sellAllBtn = child
                                 break
                             end
