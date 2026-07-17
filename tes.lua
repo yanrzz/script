@@ -1,6 +1,6 @@
 -- ============================================================ --
 -- Script Auto-Farm + Sell + Buy + Collect untuk Grow a Garden 2 --
--- Berdasarkan wiki GAG2.gg dan sumber terpercaya lainnya       --
+-- Versi 2.0 dengan UI lebih rapi dan fitur perbaikan           --
 -- ============================================================ --
 
 local Players = game:GetService("Players")
@@ -8,14 +8,13 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
+local UserInputService = game:GetService("UserInputService")
 
 local Player = Players.LocalPlayer
 local Character = Player.Character or Player.CharacterAdded:Wait()
 local RootPart = Character:WaitForChild("HumanoidRootPart")
 
--- ================= DATA DARI GAME ================= --
--- Berdasarkan wiki GAG2.gg dan sumber lainnya
-
+-- ================= DATA ================= --
 local FruitsList = {
     "Carrot", "Strawberry", "Blueberry", "Tulip", "Tomato", "Bamboo",
     "Corn", "Apple", "Mango", "Mushroom", "Banana", "Grape", "Acorn",
@@ -24,6 +23,9 @@ local FruitsList = {
     "Poison Apple", "Pomegranate", "Venom Spritter", "Sun Bloom",
     "Moon Bloom", "Dragon's Breath", "Star Fruit"
 }
+
+local FruitOptions = {"All"}
+for _, fruit in ipairs(FruitsList) do table.insert(FruitOptions, fruit) end
 
 local RarityList = {"All", "Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic", "Super"}
 local MutationList = {"All", "None", "Frozen", "Gold", "Electric", "Rainbow", "Starstruck", "Bloodlit", "Glow", "Eclipsed", "Aurora"}
@@ -36,8 +38,8 @@ local Settings = {
     AutoCollect = false,
     AutoSell = false,
     AutoBuy = false,
-    AutoPlant = false,        -- Fitur tambahan: menanam benih otomatis
-    AutoSteal = false,        -- Fitur tambahan: mencuri buah di malam hari
+    AutoPlant = false,
+    AutoSteal = false,
     SelectedFruits = FruitsList,
     SelectedRarity = "All",
     SelectedMutation = "All",
@@ -49,12 +51,14 @@ local Settings = {
 
 -- ================= GUI ================= --
 local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "GaG2AutoFarmGUI"
 ScreenGui.Parent = Player:WaitForChild("PlayerGui")
+ScreenGui.ResetOnSpawn = false
 
 local Frame = Instance.new("Frame")
-Frame.Size = UDim2.new(0, 360, 0, 520)
-Frame.Position = UDim2.new(0.5, -180, 0.5, -260)
-Frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+Frame.Size = UDim2.new(0, 380, 0, 550)
+Frame.Position = UDim2.new(0.5, -190, 0.5, -275)
+Frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 Frame.BackgroundTransparency = 0.1
 Frame.BorderSizePixel = 0
 Frame.Active = true
@@ -65,16 +69,72 @@ local Corner = Instance.new("UICorner")
 Corner.CornerRadius = UDim.new(0, 8)
 Corner.Parent = Frame
 
+-- Title Bar dengan tombol Close & Minimize
+local TitleBar = Instance.new("Frame")
+TitleBar.Size = UDim2.new(1, 0, 0, 30)
+TitleBar.BackgroundTransparency = 1
+TitleBar.Parent = Frame
+
 local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, 0, 0, 30)
-Title.Text = "🌱 GaG2 Auto Farm"
+Title.Size = UDim2.new(0.8, 0, 1, 0)
+Title.Position = UDim2.new(0, 10, 0, 0)
+Title.Text = "🌱 GaG2 Auto Farm v2"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.BackgroundTransparency = 1
+Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Font = Enum.Font.GothamBold
-Title.TextSize = 18
-Title.Parent = Frame
+Title.TextSize = 16
+Title.Parent = TitleBar
 
--- ================= FUNGSI GUI ================= --
+-- Tombol Minimize
+local MinBtn = Instance.new("TextButton")
+MinBtn.Size = UDim2.new(0, 25, 0, 25)
+MinBtn.Position = UDim2.new(0.9, 0, 0, 2)
+MinBtn.Text = "−"
+MinBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+MinBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+MinBtn.Font = Enum.Font.GothamBold
+MinBtn.TextSize = 18
+MinBtn.BorderSizePixel = 0
+MinBtn.Parent = TitleBar
+
+-- Tombol Close
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 25, 0, 25)
+CloseBtn.Position = UDim2.new(0.95, 0, 0, 2)
+CloseBtn.Text = "✕"
+CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.TextSize = 16
+CloseBtn.BorderSizePixel = 0
+CloseBtn.Parent = TitleBar
+
+local minimized = false
+MinBtn.MouseButton1Click:Connect(function()
+    minimized = not minimized
+    Frame.Size = minimized and UDim2.new(0, 380, 0, 30) or UDim2.new(0, 380, 0, 550)
+    MinBtn.Text = minimized and "+" or "−"
+    for _, child in ipairs(Frame:GetChildren()) do
+        if child ~= TitleBar and child ~= Corner then
+            child.Visible = not minimized
+        end
+    end
+end)
+
+CloseBtn.MouseButton1Click:Connect(function()
+    ScreenGui:Destroy()
+end)
+
+-- ScrollingFrame untuk konten agar tidak bertabrakan
+local Scroller = Instance.new("ScrollingFrame")
+Scroller.Size = UDim2.new(1, 0, 1, -30)
+Scroller.Position = UDim2.new(0, 0, 0, 30)
+Scroller.BackgroundTransparency = 1
+Scroller.CanvasSize = UDim2.new(0, 0, 0, 520)
+Scroller.ScrollBarThickness = 6
+Scroller.Parent = Frame
+
 local function createToggle(parent, y, text, callback)
     local container = Instance.new("Frame")
     container.Size = UDim2.new(1, -20, 0, 25)
@@ -93,8 +153,8 @@ local function createToggle(parent, y, text, callback)
     label.Parent = container
 
     local toggle = Instance.new("TextButton")
-    toggle.Size = UDim2.new(0, 40, 0, 18)
-    toggle.Position = UDim2.new(0.8, 0, 0.5, -9)
+    toggle.Size = UDim2.new(0, 45, 0, 20)
+    toggle.Position = UDim2.new(0.78, 0, 0.5, -10)
     toggle.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
     toggle.Text = "OFF"
     toggle.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -143,7 +203,7 @@ local function createDropdown(parent, y, labelText, options, callback)
 
     local selected = options[1]
     local menu = Instance.new("Frame")
-    menu.Size = UDim2.new(0.5, 0, 0, #options * 20)
+    menu.Size = UDim2.new(0.5, 0, 0, math.min(#options, 6) * 22)
     menu.Position = UDim2.new(0.5, 0, 1, 0)
     menu.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
     menu.BorderSizePixel = 0
@@ -153,12 +213,12 @@ local function createDropdown(parent, y, labelText, options, callback)
     local list = Instance.new("ScrollingFrame")
     list.Size = UDim2.new(1, 0, 1, 0)
     list.BackgroundTransparency = 1
-    list.CanvasSize = UDim2.new(0, 0, 0, #options * 20)
+    list.CanvasSize = UDim2.new(0, 0, 0, #options * 22)
     list.Parent = menu
 
     for _, opt in ipairs(options) do
         local btn = Instance.new("TextButton")
-        btn.Size = UDim2.new(1, 0, 0, 20)
+        btn.Size = UDim2.new(1, 0, 0, 22)
         btn.Text = opt
         btn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
         btn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -181,66 +241,75 @@ local function createDropdown(parent, y, labelText, options, callback)
     return dropdown
 end
 
--- ================= MEMBUAT GUI ================= --
--- Toggle Utama
-createToggle(Frame, 35, "Auto Farming", function(v) Settings.AutoFarm = v end)
-createToggle(Frame, 65, "Auto Collect Fruit", function(v) Settings.AutoCollect = v end)
-createToggle(Frame, 95, "Auto Selling", function(v) Settings.AutoSell = v end)
-createToggle(Frame, 125, "Auto Buying", function(v) Settings.AutoBuy = v end)
-createToggle(Frame, 155, "Auto Plant Seeds", function(v) Settings.AutoPlant = v end)
-createToggle(Frame, 185, "Auto Steal (Night)", function(v) Settings.AutoSteal = v end)
+-- Toggle
+local yPos = 5
+createToggle(Scroller, yPos, "Auto Farming", function(v) Settings.AutoFarm = v end) yPos = yPos + 30
+createToggle(Scroller, yPos, "Auto Collect Fruit", function(v) Settings.AutoCollect = v end) yPos = yPos + 30
+createToggle(Scroller, yPos, "Auto Selling", function(v) Settings.AutoSell = v end) yPos = yPos + 30
+createToggle(Scroller, yPos, "Auto Buying", function(v) Settings.AutoBuy = v end) yPos = yPos + 30
+createToggle(Scroller, yPos, "Auto Plant Seeds", function(v) Settings.AutoPlant = v end) yPos = yPos + 30
+createToggle(Scroller, yPos, "Auto Steal (Night)", function(v) Settings.AutoSteal = v end) yPos = yPos + 35
 
--- Dropdown Filter
-createDropdown(Frame, 220, "Fruit Filter", FruitsList, function(v)
+-- Dropdown
+createDropdown(Scroller, yPos, "Fruit Filter", FruitOptions, function(v)
     if v == "All" then Settings.SelectedFruits = FruitsList
     else Settings.SelectedFruits = {v} end
-end)
+end) yPos = yPos + 30
 
-createDropdown(Frame, 250, "Rarity", RarityList, function(v) Settings.SelectedRarity = v end)
-createDropdown(Frame, 280, "Mutation", MutationList, function(v) Settings.SelectedMutation = v end)
-createDropdown(Frame, 310, "Pets", PetsList, function(v) Settings.SelectedPets = v end)
-createDropdown(Frame, 340, "Gear to Buy", GearsList, function(v) Settings.SelectedGear = v end)
+createDropdown(Scroller, yPos, "Rarity", RarityList, function(v) Settings.SelectedRarity = v end) yPos = yPos + 30
+createDropdown(Scroller, yPos, "Mutation", MutationList, function(v) Settings.SelectedMutation = v end) yPos = yPos + 30
+createDropdown(Scroller, yPos, "Pets", PetsList, function(v) Settings.SelectedPets = v end) yPos = yPos + 30
+createDropdown(Scroller, yPos, "Gear to Buy", GearsList, function(v) Settings.SelectedGear = v end) yPos = yPos + 35
 
 -- Threshold
+local thContainer = Instance.new("Frame")
+thContainer.Size = UDim2.new(1, -20, 0, 25)
+thContainer.Position = UDim2.new(0, 10, 0, yPos)
+thContainer.BackgroundTransparency = 1
+thContainer.Parent = Scroller
+
+local thLabel = Instance.new("TextLabel")
+thLabel.Size = UDim2.new(0.4, 0, 1, 0)
+thLabel.Text = "Sell Threshold"
+thLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+thLabel.BackgroundTransparency = 1
+thLabel.TextXAlignment = Enum.TextXAlignment.Left
+thLabel.Font = Enum.Font.Gotham
+thLabel.TextSize = 13
+thLabel.Parent = thContainer
+
 local thresholdBox = Instance.new("TextBox")
-thresholdBox.Size = UDim2.new(0.4, 0, 0, 25)
-thresholdBox.Position = UDim2.new(0.5, 0, 0, 375)
+thresholdBox.Size = UDim2.new(0.3, 0, 1, 0)
+thresholdBox.Position = UDim2.new(0.6, 0, 0, 0)
 thresholdBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 thresholdBox.Text = "0"
 thresholdBox.TextColor3 = Color3.fromRGB(255, 255, 255)
 thresholdBox.Font = Enum.Font.Gotham
 thresholdBox.TextSize = 12
 thresholdBox.BorderSizePixel = 0
-thresholdBox.Parent = Frame
-
-local thLabel = Instance.new("TextLabel")
-thLabel.Size = UDim2.new(0.4, 0, 0, 25)
-thLabel.Position = UDim2.new(0.1, 0, 0, 375)
-thLabel.Text = "Sell Threshold"
-thLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-thLabel.BackgroundTransparency = 1
-thLabel.Font = Enum.Font.Gotham
-thLabel.TextSize = 12
-thLabel.Parent = Frame
+thresholdBox.Parent = thContainer
 
 thresholdBox.FocusLost:Connect(function()
     Settings.SellThreshold = tonumber(thresholdBox.Text) or 0
 end)
+yPos = yPos + 35
 
--- Status Label
+-- Status
 local statusLabel = Instance.new("TextLabel")
-statusLabel.Size = UDim2.new(1, -20, 0, 20)
-statusLabel.Position = UDim2.new(0, 10, 0, 410)
+statusLabel.Size = UDim2.new(1, -20, 0, 25)
+statusLabel.Position = UDim2.new(0, 10, 0, yPos)
 statusLabel.Text = "Status: Idle"
 statusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
 statusLabel.BackgroundTransparency = 1
 statusLabel.Font = Enum.Font.Gotham
-statusLabel.TextSize = 12
-statusLabel.Parent = Frame
+statusLabel.TextSize = 13
+statusLabel.Parent = Scroller
+yPos = yPos + 30
+
+Scroller.CanvasSize = UDim2.new(0, 0, 0, yPos + 20)
 
 -- ================= FUNGSI UTILITY ================= --
 
--- Cari buah terdekat berdasarkan daftar yang dipilih
 local function getNearestFruit()
     local nearest = nil
     local minDist = math.huge
@@ -256,7 +325,6 @@ local function getNearestFruit()
     return nearest
 end
 
--- Cari semua buah di sekitar
 local function getNearbyFruits(radius)
     local fruits = {}
     for _, obj in ipairs(Workspace:GetDescendants()) do
@@ -270,135 +338,187 @@ local function getNearbyFruits(radius)
     return fruits
 end
 
--- Teleport ke posisi
 local function teleportTo(position)
     RootPart.CFrame = CFrame.new(position)
-    task.wait(0.2)
+    task.wait(0.15)
 end
 
--- Interaksi dengan objek (panen / collect)
+-- Fungsi interaksi yang lebih serbaguna
 local function interactWith(obj)
-    if obj and obj:IsA("BasePart") then
-        -- Coba beberapa remote event umum di GaG2
-        local remotes = {
-            ReplicatedStorage:FindFirstChild("CollectFruit"),
-            ReplicatedStorage:FindFirstChild("Harvest"),
-            ReplicatedStorage:FindFirstChild("Gather"),
-            ReplicatedStorage:FindFirstChild("Pickup"),
-        }
-        for _, remote in ipairs(remotes) do
-            if remote then
-                remote:FireServer(obj)
-                return true
-            end
+    if not obj or not obj:IsA("BasePart") then return false end
+    
+    -- Metode 1: Coba semua remote event yang umum
+    local remoteNames = {"CollectFruit", "Harvest", "Gather", "Pickup", "Collect", "HarvestFruit"}
+    for _, name in ipairs(remoteNames) do
+        local remote = ReplicatedStorage:FindFirstChild(name)
+        if remote then
+            remote:FireServer(obj)
+            return true
         end
-        -- Alternatif: klik dengan VirtualUser
-        VirtualUser:ClickButton2(Vector2.new(0,0))
-        return true
     end
+    
+    -- Metode 2: Coba klik pada objek dengan VirtualUser (simulasi mouse)
+    local success, err = pcall(function()
+        VirtualUser:ClickButton2(Vector2.new(0,0))
+    end)
+    if success then return true end
+    
+    -- Metode 3: Coba fire remote dengan argumen objek (beberapa game pakai argumen)
+    for _, remote in ipairs(ReplicatedStorage:GetChildren()) do
+        if remote:IsA("RemoteEvent") and remote.Name:lower():find("collect") or remote.Name:lower():find("harvest") then
+            pcall(function() remote:FireServer(obj) end)
+            return true
+        end
+    end
+    
     return false
 end
 
--- Cek apakah buah layak dijual (filter rarity & mutation)
-local function shouldSell(fruit)
-    local rarity = fruit:GetAttribute("Rarity") or fruit:GetAttribute("rarity") or "Common"
-    local mutation = fruit:GetAttribute("Mutation") or fruit:GetAttribute("mutation") or "None"
+-- Fungsi jual
+local function sellAll()
+    -- Metode 1: Remote event
+    local sellRemotes = {"SellFruit", "SellAll", "Sell", "SellCrops", "SellAllFruits"}
+    for _, name in ipairs(sellRemotes) do
+        local remote = ReplicatedStorage:FindFirstChild(name)
+        if remote then
+            remote:FireServer()
+            return true
+        end
+    end
     
-    if Settings.SelectedRarity ~= "All" and rarity ~= Settings.SelectedRarity then
-        return false
+    -- Metode 2: Tombol GUI
+    local sellBtn = Player.PlayerGui:FindFirstChild("SellButton", true) or 
+                    Player.PlayerGui:FindFirstChild("SellAll", true) or
+                    Player.PlayerGui:FindFirstChild("SellFruit", true)
+    if sellBtn and sellBtn:IsA("TextButton") then
+        sellBtn:Click()
+        return true
     end
-    if Settings.SelectedMutation ~= "All" and mutation ~= Settings.SelectedMutation then
-        return false
+    
+    -- Metode 3: Klik pada tombol sell di screen dengan VirtualUser (jika tombol terlihat)
+    for _, gui in ipairs(Player.PlayerGui:GetDescendants()) do
+        if gui:IsA("TextButton") and gui.Name:lower():find("sell") then
+            gui:Click()
+            return true
+        end
     end
-    return true
+    
+    return false
 end
 
--- Cek apakah malam (untuk auto steal)
+-- Fungsi beli
+local function buyGear(gearName)
+    if gearName == "All" then return false end
+    
+    -- Metode 1: Remote event
+    local buyRemotes = {"BuyItem", "Purchase", "Buy"}
+    for _, name in ipairs(buyRemotes) do
+        local remote = ReplicatedStorage:FindFirstChild(name)
+        if remote then
+            remote:FireServer(gearName, Settings.BuyAmount)
+            return true
+        end
+    end
+    
+    -- Metode 2: Cari objek shop dan klik tombol buy
+    local shop = Workspace:FindFirstChild("Shop") or Workspace:FindFirstChild("Store") or Workspace:FindFirstChild("SeedShop")
+    if shop then
+        local item = shop:FindFirstChild(gearName)
+        if item then
+            for _, btn in ipairs(item:GetDescendants()) do
+                if btn:IsA("TextButton") and btn.Name:lower():find("buy") then
+                    btn:Click()
+                    return true
+                end
+            end
+        end
+    end
+    
+    -- Metode 3: Cari tombol buy di GUI
+    for _, gui in ipairs(Player.PlayerGui:GetDescendants()) do
+        if gui:IsA("TextButton") and gui.Name:lower():find("buy") then
+            gui:Click()
+            return true
+        end
+    end
+    
+    return false
+end
+
+-- Fungsi tanam benih
+local function plantSeed(plot)
+    local plantRemotes = {"PlantSeed", "Plant", "Sow"}
+    for _, name in ipairs(plantRemotes) do
+        local remote = ReplicatedStorage:FindFirstChild(name)
+        if remote then
+            remote:FireServer(plot)
+            return true
+        end
+    end
+    -- Alternatif klik
+    VirtualUser:ClickButton2(Vector2.new(0,0))
+    return false
+end
+
+-- Cek apakah malam
 local function isNight()
     local lighting = game:GetService("Lighting")
-    return lighting:GetPropertyChangedSignal("ClockTime") or lighting.ClockTime >= 18 or lighting.ClockTime <= 6
+    return lighting.ClockTime >= 18 or lighting.ClockTime <= 6
 end
 
 -- ================= MAIN LOOP ================= --
+local lastSellTime = 0
+local lastBuyTime = 0
 
 RunService.Heartbeat:Connect(function()
     local status = "Idle"
     
-    -- === AUTO FARM === --
+    -- Auto Farm
     if Settings.AutoFarm then
         status = "Farming..."
         local target = getNearestFruit()
         if target then
             teleportTo(target.Position)
-            task.wait(0.15)
             interactWith(target)
+            task.wait(0.1)
         end
     end
     
-    -- === AUTO COLLECT === --
+    -- Auto Collect
     if Settings.AutoCollect then
         status = "Collecting..."
-        local nearby = getNearbyFruits(25)
+        local nearby = getNearbyFruits(30)
         for _, fruit in ipairs(nearby) do
             interactWith(fruit)
-            task.wait(0.08)
+            task.wait(0.06)
         end
     end
     
-    -- === AUTO SELL === --
-    if Settings.AutoSell then
+    -- Auto Sell (dengan cooldown)
+    if Settings.AutoSell and tick() - lastSellTime > 2 then
         status = "Selling..."
-        -- Coba berbagai remote sell yang mungkin ada
-        local sellRemotes = {
-            ReplicatedStorage:FindFirstChild("SellFruit"),
-            ReplicatedStorage:FindFirstChild("SellAll"),
-            ReplicatedStorage:FindFirstChild("Sell"),
-            ReplicatedStorage:FindFirstChild("SellCrops"),
-        }
-        local sold = false
-        for _, remote in ipairs(sellRemotes) do
-            if remote then
-                remote:FireServer()
-                sold = true
-                break
-            end
+        local success = sellAll()
+        if success then
+            lastSellTime = tick()
         end
-        
-        if not sold then
-            -- Cari tombol GUI Sell
-            local sellBtn = Player.PlayerGui:FindFirstChild("SellButton", true) or 
-                            Player.PlayerGui:FindFirstChild("SellAll", true)
-            if sellBtn and sellBtn:IsA("TextButton") then
-                sellBtn:Click()
-            end
-        end
-        task.wait(1)
+        task.wait(0.5)
     end
     
-    -- === AUTO BUY === --
-    if Settings.AutoBuy and Settings.SelectedGear ~= "All" then
+    -- Auto Buy
+    if Settings.AutoBuy and Settings.SelectedGear ~= "All" and tick() - lastBuyTime > 3 then
         status = "Buying..."
-        local shop = Workspace:FindFirstChild("Shop") or Workspace:FindFirstChild("Store") or Workspace:FindFirstChild("SeedShop")
-        if shop then
-            local item = shop:FindFirstChild(Settings.SelectedGear)
-            if item and item:IsA("BasePart") then
-                local buyRemote = ReplicatedStorage:FindFirstChild("BuyItem") or 
-                                  ReplicatedStorage:FindFirstChild("Purchase")
-                if buyRemote then
-                    buyRemote:FireServer(Settings.SelectedGear, Settings.BuyAmount)
-                end
-                task.wait(0.5)
-            end
+        local success = buyGear(Settings.SelectedGear)
+        if success then
+            lastBuyTime = tick()
         end
+        task.wait(0.5)
     end
     
-    -- === AUTO PLANT === --
+    -- Auto Plant
     if Settings.AutoPlant then
         status = "Planting..."
-        -- Cari bedengan kosong (biasanya berupa plot atau tanah)
         for _, plot in ipairs(Workspace:GetDescendants()) do
-            if plot:IsA("BasePart") and (plot.Name:lower():find("plot") or plot.Name:lower():find("soil") or plot.Name:lower():find("bed")) then
-                -- Cek apakah plot kosong (tidak ada tanaman)
+            if plot:IsA("BasePart") and (plot.Name:lower():find("plot") or plot.Name:lower():find("soil") or plot.Name:lower():find("bed") or plot.Name:lower():find("pot")) then
                 local hasPlant = false
                 for _, child in ipairs(plot:GetChildren()) do
                     if child:IsA("BasePart") and child.Name and table.find(FruitsList, child.Name) then
@@ -407,38 +527,28 @@ RunService.Heartbeat:Connect(function()
                     end
                 end
                 if not hasPlant then
-                    -- Coba tanam dengan remote atau klik
-                    local plantRemote = ReplicatedStorage:FindFirstChild("PlantSeed")
-                    if plantRemote then
-                        plantRemote:FireServer(plot)
-                    else
-                        VirtualUser:ClickButton2(Vector2.new(0,0))
-                    end
-                    task.wait(0.3)
+                    plantSeed(plot)
+                    task.wait(0.2)
                 end
             end
         end
     end
     
-    -- === AUTO STEAL (Night Only) === --
+    -- Auto Steal
     if Settings.AutoSteal and isNight() then
         status = "Stealing..."
-        -- Cari tanaman di kebun pemain lain
         for _, plant in ipairs(Workspace:GetDescendants()) do
             if plant:IsA("BasePart") and plant.Name and table.find(FruitsList, plant.Name) then
-                -- Cek apakah ini milik pemain lain (biasanya ada atribut Owner)
                 local owner = plant:GetAttribute("Owner") or plant:GetAttribute("owner")
                 if owner and owner ~= Player.Name then
                     teleportTo(plant.Position)
-                    task.wait(0.15)
                     interactWith(plant)
-                    task.wait(0.3)
+                    task.wait(0.2)
                 end
             end
         end
     end
     
-    -- Update status
     statusLabel.Text = "Status: " .. status
 end)
 
@@ -447,7 +557,6 @@ Player.Idled:Connect(function()
     VirtualUser:ClickButton2(Vector2.new())
 end)
 
--- ================= NOTIFIKASI ================= --
-print("🌱 GaG2 Auto Farm Script Loaded!")
+print("🌱 GaG2 Auto Farm Script v2 Loaded!")
 print("📌 Atur toggle dan filter di GUI.")
 print("⚠️ Gunakan dengan bijak - resiko ban tetap ada.")
