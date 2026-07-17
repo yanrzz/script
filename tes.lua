@@ -1,5 +1,5 @@
 -- =============================================================================
--- SPEED HUB X v9.0 - GAG2 INDONESIAN EDITION (100% FIX CONFIRMATION BUTTON)
+-- SPEED HUB X v10.0 - GAG2 INDONESIAN EDITION (MULTI-SELECT SEEDS & MINIMIZE)
 -- =============================================================================
 
 -- 1. DATABASE ITEM (Mendukung Bahasa Indonesia & Inggris)
@@ -8,7 +8,7 @@ local FruitsList = {
     "Jagung", "Corn", "Apel", "Apple", "Mangga", "Mango", "Jamur", "Mushroom", "Pisang", "Banana", "Anggur", "Grape",
     "Acorn", "Rocket Pop", "Nanas", "Pineapple", "Kaktus", "Cactus", "Buah Naga", "Dragon Fruit", "Ceri", "Cherry",
     "Pakis Api", "Fire Fern", "Buncis", "Green Bean", "Kelapa", "Coconut", "Bunga Matahari", "Sunflower", 
-    "Venus Fly Trap", "Poison Apple", "Pomegranate", "Venom Spritter", "Sun Bloom", "Moon Bloom", "Dragon's Breath", "Star Fruit", "Buah bintang"
+    "Venus Fly Trap", "Poison Apple", "Pomegranate", "Venom Spritter", "Sun Bloom", "Moon Bloom", "Dragon's Breath", "Star Fruit"
 }
 
 local GearsList = {
@@ -27,7 +27,8 @@ _G.AutoCollect = false
 _G.AutoPlant = false
 _G.AutoHarvest = false
 _G.AutoBuySeed = false
-_G.SelectedSeed = "Wortel"
+_G.SelectedSeeds = { ["Wortel"] = true } -- Default awal
+_G.BuyAllSeeds = false
 _G.AutoBuyGear = false
 _G.SelectedGear = "Sekop"
 _G.AutoSellAll = false
@@ -73,17 +74,6 @@ local function clickButton(btn)
     end)
 end
 
--- Helper: Simulasi Klik Tombol Menu Atas (Biji-bijian, Jual, dll)
-local function clickGuiButton(textKeyword)
-    pcall(function()
-        for _, v in pairs(Player:WaitForChild("PlayerGui"):GetDescendants()) do
-            if v:IsA("TextButton") and string.find(string.lower(v.Text), string.lower(textKeyword)) then
-                clickButton(v)
-            end
-        end
-    end)
-end
-
 -- Helper: Deteksi & Klik Pilihan Dialog Chat NPC
 local function clickDialogueOption(keyword)
     local success = false
@@ -94,7 +84,6 @@ local function clickDialogueOption(keyword)
                     clickButton(v)
                     success = true
                 else
-                    -- Jika berupa label teks, cari tombol pembungkusnya (Parent)
                     local parent = v.Parent
                     for i = 1, 3 do
                         if parent and (parent:IsA("TextButton") or parent:IsA("ImageButton")) then
@@ -130,7 +119,6 @@ end
 -- 4. BYPASS & CORE ENGINE (WALKSPEED & NOCLIP)
 -- =============================================================================
 
--- Walkspeed Bypass Engine (Anti-Reset Game)
 local speedConnection
 local function enableWalkspeed()
     if speedConnection then speedConnection:Disconnect() end
@@ -154,7 +142,6 @@ Player.CharacterAdded:Connect(function()
     end
 end)
 
--- Noclip Loop (Stepped Physics)
 RunService.Stepped:Connect(function()
     if _G.NoClipToggle and Player.Character then
         for _, part in pairs(Player.Character:GetDescendants()) do
@@ -169,7 +156,7 @@ end)
 -- 5. AUTOMATION GARDENING ENGINE
 -- =============================================================================
 
--- Loop Utama: Auto Collect, Plant, & Harvest (Setiap 0.2 Detik - Sangat Cepat)
+-- Loop Utama: Auto Collect, Plant, & Harvest (Setiap 0.2 Detik)
 task.spawn(function()
     while task.wait(0.2) do
         local char = Player.Character
@@ -178,7 +165,6 @@ task.spawn(function()
         
         local myGarden = getMyGarden()
         if myGarden then
-            -- Bypass Jarak ProximityPrompt agar bisa diakses dari jauh
             for _, prompt in pairs(myGarden:GetDescendants()) do
                 if prompt:IsA("ProximityPrompt") then
                     prompt.RequiresLineOfSight = false
@@ -188,7 +174,7 @@ task.spawn(function()
                     local action = string.lower(prompt.ActionText)
                     local object = string.lower(prompt.ObjectText)
                     
-                    -- A. AUTO HARVEST (Panen)
+                    -- A. AUTO HARVEST
                     if _G.AutoHarvest then
                         if string.find(action, "panen") or string.find(action, "harvest") or 
                            string.find(action, "ambil") or string.find(action, "pick") or 
@@ -197,7 +183,7 @@ task.spawn(function()
                         end
                     end
                     
-                    -- B. AUTO PLANT (Tanam)
+                    -- B. AUTO PLANT
                     if _G.AutoPlant then
                         if string.find(action, "tanam") or string.find(action, "plant") or 
                            string.find(object, "tanam") or string.find(object, "plant") or
@@ -209,7 +195,7 @@ task.spawn(function()
             end
         end
 
-        -- C. AUTO COLLECT (Sapu Bersih Buah di Tanah)
+        -- C. AUTO COLLECT
         if _G.AutoCollect then
             local fruits = getDroppedFruits()
             for _, fruit in pairs(fruits) do
@@ -226,60 +212,85 @@ end)
 -- Loop Toko & Jual NPC (Setiap 0.6 Detik)
 task.spawn(function()
     while task.wait(0.6) do
-        -- A. AUTO BUY SEED (Sistem Pembelian Ganda - Deteksi Tombol Hijau)
-        if _G.AutoBuySeed and _G.SelectedSeed then
+        -- A. AUTO BUY SEEDS (MENDUKUNG MULTI-SELECT ATAU SEMUA BENIH)
+        if _G.AutoBuySeed then
             pcall(function()
-                local targetRow = nil
-                
-                -- 1. Cari baris/row benih yang sesuai (misal: "Wortel")
-                for _, gui in pairs(Player.PlayerGui:GetDescendants()) do
-                    if gui:IsA("TextLabel") and string.find(string.lower(gui.Text), string.lower(_G.SelectedSeed)) then
-                        targetRow = gui.Parent
-                        break
+                -- Tentukan daftar benih yang ingin dibeli
+                local targetSeeds = {}
+                if _G.BuyAllSeeds then
+                    -- Scan apa saja benih yang sedang tampil di UI toko game saat ini
+                    for _, gui in pairs(Player.PlayerGui:GetDescendants()) do
+                        if gui:IsA("TextLabel") then
+                            for _, seed in pairs(FruitsList) do
+                                if string.find(string.lower(gui.Text), string.lower(seed)) then
+                                    if not table.find(targetSeeds, seed) then
+                                        table.insert(targetSeeds, seed)
+                                    end
+                                end
+                            end
+                        end
+                    end
+                else
+                    -- Masukkan hanya benih yang dicentang oleh user
+                    for seedName, isSelected in pairs(_G.SelectedSeeds) do
+                        if isSelected then
+                            table.insert(targetSeeds, seedName)
+                        end
                     end
                 end
 
-                if targetRow then
-                    -- 2. Klik tombol kelangkaan terlebih dahulu ("Umum" / "Langka" / "Sangat Langka")
-                    for _, child in pairs(targetRow:GetDescendants()) do
-                        if child:IsA("TextButton") and (
-                            string.find(string.lower(child.Text), "umum") or 
-                            string.find(string.lower(child.Text), "langka") or 
-                            string.find(string.lower(child.Text), "common") or 
-                            string.find(string.lower(child.Text), "rare")
-                        ) then
-                            clickButton(child)
+                -- Eksekusi pembelian untuk semua benih dalam target
+                for _, seedName in ipairs(targetSeeds) do
+                    local targetRow = nil
+                    for _, gui in pairs(Player.PlayerGui:GetDescendants()) do
+                        if gui:IsA("TextLabel") and string.find(string.lower(gui.Text), string.lower(seedName)) then
+                            targetRow = gui.Parent
                             break
                         end
                     end
 
-                    -- 3. Beri jeda kecil agar game memunculkan sub-menu tombol konfirmasi hijau
-                    task.wait(0.15)
+                    if targetRow then
+                        -- Klik tombol kelangkaan ("Umum" / "Langka" / "Sangat Langka")
+                        local rarityBtn = nil
+                        for _, child in pairs(targetRow:GetDescendants()) do
+                            if child:IsA("TextButton") and (
+                                string.find(string.lower(child.Text), "umum") or 
+                                string.find(string.lower(child.Text), "langka") or 
+                                string.find(string.lower(child.Text), "common") or 
+                                string.find(string.lower(child.Text), "rare")
+                            ) then
+                                rarityBtn = child
+                                break
+                            end
+                        end
 
-                    -- 4. Cari tombol konfirmasi berwarna HIJAU yang berisi teks "¢" (Simbol koin game)
-                    for _, v in pairs(Player.PlayerGui:GetDescendants()) do
-                        if v:IsA("TextButton") or v:IsA("ImageButton") then
-                            -- Deteksi warna hijau dominan (RGB)
-                            local bg = v.BackgroundColor3
-                            local isGreen = (bg.G > bg.R and bg.G > bg.B and bg.G > 0.4)
-                            
-                            -- Cek keberadaan simbol koin "¢" di dalam tombol tersebut
-                            local hasCoinSymbol = false
-                            if string.find(v.Name, "¢") or (v:IsA("TextButton") and string.find(v.Text, "¢")) then
-                                hasCoinSymbol = true
-                            else
-                                for _, c in pairs(v:GetChildren()) do
-                                    if c:IsA("TextLabel") and string.find(c.Text, "¢") then
+                        if rarityBtn then
+                            clickButton(rarityBtn)
+                            task.wait(0.12) -- Tunggu animasi tombol konfirmasi hijau muncul
+
+                            -- Cari & klik tombol konfirmasi hijau (Simbol ¢)
+                            for _, v in pairs(Player.PlayerGui:GetDescendants()) do
+                                if v:IsA("TextButton") or v:IsA("ImageButton") then
+                                    local bg = v.BackgroundColor3
+                                    local isGreen = (bg.G > bg.R and bg.G > bg.B and bg.G > 0.4)
+                                    
+                                    local hasCoinSymbol = false
+                                    if string.find(v.Name, "¢") or (v:IsA("TextButton") and string.find(v.Text, "¢")) then
                                         hasCoinSymbol = true
+                                    else
+                                        for _, c in pairs(v:GetChildren()) do
+                                            if c:IsA("TextLabel") and string.find(c.Text, "¢") then
+                                                hasCoinSymbol = true
+                                                break
+                                            end
+                                        end
+                                    end
+
+                                    if isGreen and hasCoinSymbol then
+                                        clickButton(v)
                                         break
                                     end
                                 end
-                            end
-
-                            -- Jika valid, langsung klik tombol hijau konfirmasi tersebut!
-                            if isGreen and hasCoinSymbol then
-                                clickButton(v)
-                                break
                             end
                         end
                     end
@@ -287,7 +298,7 @@ task.spawn(function()
             end)
         end
 
-        -- B. AUTO BUY GEAR (Beli Peralatan)
+        -- B. AUTO BUY GEAR
         if _G.AutoBuyGear and _G.SelectedGear then
             pcall(function()
                 for _, prompt in pairs(Workspace:GetDescendants()) do
@@ -301,7 +312,7 @@ task.spawn(function()
             end)
         end
 
-        -- C. AUTO SELL ALL (Sistem Dialog NPC Jual Terintegrasi)
+        -- C. AUTO SELL ALL
         if _G.AutoSellAll then
             pcall(function()
                 local dialogAktif = false
@@ -339,7 +350,7 @@ task.spawn(function()
 end)
 
 -- =============================================================================
--- UI SYSTEM (ULTRA COMPACT DESIGN - 440 x 350)
+-- UI SYSTEM (ULTRA COMPACT DESIGN WITH MINIMIZE / DRAG FUNCTION)
 -- =============================================================================
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "SpeedHubX"
@@ -358,6 +369,27 @@ Main.Draggable = true
 Main.Parent = ScreenGui
 Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 6)
 
+-- Floating Open Button (Saat UI di-Minimize)
+local OpenBtn = Instance.new("TextButton")
+OpenBtn.Size = UDim2.new(0, 55, 0, 55)
+OpenBtn.Position = UDim2.new(0, 15, 0.5, -27)
+OpenBtn.BackgroundColor3 = Color3.fromRGB(28, 18, 22)
+OpenBtn.BorderSizePixel = 0
+OpenBtn.Text = "Speed\nHub"
+OpenBtn.TextColor3 = Color3.fromRGB(255, 70, 70)
+OpenBtn.Font = Enum.Font.SourceSansBold
+OpenBtn.TextSize = 11
+OpenBtn.Visible = false
+OpenBtn.Active = true
+OpenBtn.Draggable = true -- Bisa digeser ke mana saja!
+OpenBtn.Parent = ScreenGui
+Instance.new("UICorner", OpenBtn).CornerRadius = UDim.new(0, 28)
+
+local stroke = Instance.new("UIStroke")
+stroke.Color = Color3.fromRGB(255, 70, 70)
+stroke.Thickness = 1.5
+stroke.Parent = OpenBtn
+
 -- Top Bar
 local Top = Instance.new("Frame")
 Top.Size = UDim2.new(1, 0, 0, 35)
@@ -367,7 +399,7 @@ Top.Parent = Main
 Instance.new("UICorner", Top).CornerRadius = UDim.new(0, 6)
 
 local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, -40, 1, 0)
+Title.Size = UDim2.new(1, -75, 1, 0)
 Title.Position = UDim2.new(0, 10, 0, 0)
 Title.Text = "Speed Hub X | Grow a Garden 2"
 Title.TextColor3 = Color3.fromRGB(255, 70, 70)
@@ -377,6 +409,7 @@ Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.BackgroundTransparency = 1
 Title.Parent = Top
 
+-- Tombol Close
 local Close = Instance.new("TextButton")
 Close.Size = UDim2.new(0, 30, 0, 30)
 Close.AnchorPoint = Vector2.new(1, 0)
@@ -385,9 +418,32 @@ Close.BackgroundTransparency = 1
 Close.Text = "✕"
 Close.TextColor3 = Color3.fromRGB(200,200,200)
 Close.Font = Enum.Font.SourceSansBold
-Close.TextSize = 14
+Close.TextSize = 13
 Close.Parent = Top
 Close.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
+
+-- Tombol Minimize
+local Minimize = Instance.new("TextButton")
+Minimize.Size = UDim2.new(0, 30, 0, 30)
+Minimize.AnchorPoint = Vector2.new(1, 0)
+Minimize.Position = UDim2.new(1, -35, 0, 2)
+Minimize.BackgroundTransparency = 1
+Minimize.Text = "−"
+Minimize.TextColor3 = Color3.fromRGB(200,200,200)
+Minimize.Font = Enum.Font.SourceSansBold
+Minimize.TextSize = 15
+Minimize.Parent = Top
+
+-- Logika Minimize/Maximize
+Minimize.MouseButton1Click:Connect(function()
+    Main.Visible = false
+    OpenBtn.Visible = true
+end)
+
+OpenBtn.MouseButton1Click:Connect(function()
+    Main.Visible = true
+    OpenBtn.Visible = false
+end)
 
 -- SIDEBAR KIRI
 local Sidebar = Instance.new("ScrollingFrame")
@@ -574,6 +630,142 @@ local function AddInput(parent, text, placeholder, cb)
     end)
 end
 
+-- FITUR CANGGIH: MULTI-SELECT DROPDOWN (BISA PILIH ALL ATAU BANYAK BIJI SEKALIGUS)
+local function AddMultiDropdown(parent, text, options, cb)
+    local f = Instance.new("Frame")
+    f.Size = UDim2.new(1, -5, 0, 28)
+    f.BackgroundColor3 = Color3.fromRGB(28,20,24)
+    f.BorderSizePixel = 0
+    f.ClipsDescendants = true
+    f.Parent = parent
+    Instance.new("UICorner", f).CornerRadius = UDim.new(0, 3)
+    
+    local l = Instance.new("TextLabel")
+    l.Size = UDim2.new(1, -110, 1, 0)
+    l.Position = UDim2.new(0, 8, 0, 0)
+    l.BackgroundTransparency = 1
+    l.Text = text
+    l.TextColor3 = Color3.fromRGB(210,200,205)
+    l.Font = Enum.Font.SourceSans
+    l.TextSize = 11
+    l.TextXAlignment = Enum.TextXAlignment.Left
+    l.Parent = f
+    
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0, 100, 0, 20)
+    btn.AnchorPoint = Vector2.new(1, 0)
+    btn.Position = UDim2.new(1, -8, 0, 4)
+    btn.BackgroundColor3 = Color3.fromRGB(45,35,40)
+    btn.Text = "Pilih Benih"
+    btn.TextColor3 = Color3.fromRGB(255,255,255)
+    btn.Font = Enum.Font.SourceSans
+    btn.TextSize = 10
+    btn.TextTruncate = Enum.TextTruncate.AtEnd
+    btn.Parent = f
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 3)
+    
+    local isOpen = false
+    local list = Instance.new("ScrollingFrame")
+    list.Size = UDim2.new(1, -16, 0, 100)
+    list.Position = UDim2.new(0, 8, 0, 28)
+    list.BackgroundColor3 = Color3.fromRGB(35,25,30)
+    list.BorderSizePixel = 0
+    list.ScrollBarThickness = 2
+    list.Visible = false
+    list.Parent = f
+    
+    local listLayout = Instance.new("UIListLayout", list)
+    listLayout.Padding = UDim.new(0, 1)
+    
+    -- Gabungkan opsi "ALL SEEDS" ke baris pertama dropdown
+    local fullOptions = {"[ ALL SEEDS ]"}
+    for _, opt in ipairs(options) do
+        table.insert(fullOptions, opt)
+    end
+    
+    list.CanvasSize = UDim2.new(0, 0, 0, #fullOptions * 20)
+    
+    btn.MouseButton1Click:Connect(function()
+        isOpen = not isOpen
+        list.Visible = isOpen
+        f.Size = isOpen and UDim2.new(1, -5, 0, 135) or UDim2.new(1, -5, 0, 28)
+    end)
+    
+    local optButtons = {}
+    
+    local function updateDisplay()
+        if _G.BuyAllSeeds then
+            btn.Text = "ALL SEEDS"
+            btn.TextColor3 = Color3.fromRGB(255, 100, 100)
+        else
+            local selectedText = {}
+            for name, active in pairs(_G.SelectedSeeds) do
+                if active then
+                    table.insert(selectedText, name)
+                end
+            end
+            if #selectedText == 0 then
+                btn.Text = "Pilih Benih"
+                btn.TextColor3 = Color3.fromRGB(255,255,255)
+            else
+                btn.Text = table.concat(selectedText, ", ")
+                btn.TextColor3 = Color3.fromRGB(100, 255, 100)
+            end
+        end
+        
+        -- Update visual checkmark untuk setiap tombol di dalam menu gulir dropdown
+        for _, item in ipairs(optButtons) do
+            local isOptAll = (item.OptionName == "[ ALL SEEDS ]")
+            local isSelected = false
+            if isOptAll then
+                isSelected = _G.BuyAllSeeds
+            else
+                isSelected = (_G.SelectedSeeds[item.OptionName] == true) and not _G.BuyAllSeeds
+            end
+            
+            if isSelected then
+                item.Button.TextColor3 = Color3.fromRGB(255, 70, 70)
+                item.Button.Text = "✓ " .. item.OptionName
+            else
+                item.Button.TextColor3 = Color3.fromRGB(200,200,200)
+                item.Button.Text = "  " .. item.OptionName
+            end
+        end
+    end
+    
+    for _, opt in ipairs(fullOptions) do
+        local optBtn = Instance.new("TextButton")
+        optBtn.Size = UDim2.new(1, 0, 0, 18)
+        optBtn.BackgroundColor3 = Color3.fromRGB(40,30,36)
+        optBtn.BorderSizePixel = 0
+        optBtn.Text = "  " .. opt
+        optBtn.TextColor3 = Color3.fromRGB(200,200,200)
+        optBtn.Font = Enum.Font.SourceSans
+        optBtn.TextSize = 10
+        optBtn.TextXAlignment = Enum.TextXAlignment.Left
+        optBtn.Parent = list
+        
+        table.insert(optButtons, {Button = optBtn, OptionName = opt})
+        
+        optBtn.MouseButton1Click:Connect(function()
+            if opt == "[ ALL SEEDS ]" then
+                _G.BuyAllSeeds = not _G.BuyAllSeeds
+                if _G.BuyAllSeeds then
+                    _G.SelectedSeeds = {} -- Kosongkan filter individu jika ALL aktif
+                end
+            else
+                _G.BuyAllSeeds = false
+                _G.SelectedSeeds[opt] = not _G.SelectedSeeds[opt]
+            end
+            updateDisplay()
+            if cb then cb() end
+        end)
+    end
+    
+    updateDisplay()
+end
+
+-- DROPDOWN STANDARD (Peralatan)
 local function AddDropdown(parent, text, options, cb)
     local f = Instance.new("Frame")
     f.Size = UDim2.new(1, -5, 0, 28)
@@ -648,7 +840,7 @@ local function AddDropdown(parent, text, options, cb)
 end
 
 -- =============================================================================
--- 6. BUILD PAGES (GARDENING SPECIAL WITH AUTO-SELL)
+-- 6. BUILD PAGES (TAB DESIGN)
 -- =============================================================================
 
 -- TAB 1: AUTO FARM
@@ -659,10 +851,10 @@ AddToggle(farmPage, "Auto Tanam (Plant)", false, function(v) _G.AutoPlant = v en
 AddToggle(farmPage, "Auto Panen (Harvest)", false, function(v) _G.AutoHarvest = v end)
 AddToggle(farmPage, "Auto Jual Semua (NPC Dialogue)", false, function(v) _G.AutoSellAll = v end)
 
--- TAB 2: SHOP BUY
+-- TAB 2: SHOP BUY (FITUR TERBARU DENGAN MULTI-SELECT)
 local shopPage = CreateTab("Auto Belanja")
 AddSection(shopPage, "🌱 Beli Biji-Bijian")
-AddDropdown(shopPage, "Pilih Biji", FruitsList, function(v) _G.SelectedSeed = v end)
+AddMultiDropdown(shopPage, "Pilih Biji (Bisa Multi / All)", FruitsList)
 AddToggle(shopPage, "Aktifkan Auto Beli Biji", false, function(v) _G.AutoBuySeed = v end)
 
 AddSection(shopPage, "🔧 Beli Peralatan")
@@ -701,7 +893,7 @@ task.spawn(function()
     end
 end)
 
--- Auto Menghitung Tinggi Scroll Page (Menghindari Dropdown Terpotong)
+-- Auto Menghitung Tinggi Scroll Page agar dropdown tidak terpotong saat dibuka
 task.spawn(function()
     while task.wait(0.5) do
         pcall(function()
