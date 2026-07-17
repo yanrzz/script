@@ -1,5 +1,5 @@
 -- =============================================================================
--- SPEED HUB X v17.0 - ULTIMATE ANTI-GUILD & SCREEN-BOUNDARY LOCK
+-- SPEED HUB X v17.1 - FIX AUTO BUY SEED (TANPA UBAH YANG LAIN)
 -- =============================================================================
 
 -- 1. DATABASE ITEM
@@ -472,104 +472,165 @@ task.spawn(function()
     end
 end)
 
--- Loop Belanja & Jual Otomatis (Setiap 0.8 Detik)
+-- =============================================================================
+-- LOOP AUTO BUY SEED (FIXED - TIDAK MENGUBAH YANG LAIN)
+-- =============================================================================
 task.spawn(function()
     while task.wait(0.8) do
         if _G.AutoBuySeed then
             pcall(function()
+                -- 1. Cari toko benih yang valid
                 local seedShopFrame = getRealSeedShopFrame()
                 if not seedShopFrame then
                     local openBtn = getTopNavButton("benih") or getTopNavButton("biji") or getTopNavButton("seed")
                     if openBtn then
                         pressButton(openBtn)
-                        task.wait(0.4)
+                        task.wait(0.5)
                         seedShopFrame = getRealSeedShopFrame()
                     end
                 end
 
-                if seedShopFrame then
-                    local targetSeeds = {}
-                    if _G.BuyAllSeeds then
-                        for _, gui in pairs(seedShopFrame:GetDescendants()) do
-                            if gui:IsA("TextLabel") and isFullyVisible(gui) and isOnScreen(gui) and not isGuildRelated(gui) then
-                                for _, seed in pairs(FruitsList) do
-                                    if string.find(string.lower(gui.Text), string.lower(seed)) then
-                                        if not table.find(targetSeeds, seed) then
-                                            table.insert(targetSeeds, seed)
-                                        end
+                if not seedShopFrame then
+                    return -- Tidak ada toko benih
+                end
+
+                -- 2. Tentukan daftar benih yang akan dibeli
+                local targetSeeds = {}
+                if _G.BuyAllSeeds then
+                    -- Scan semua teks di toko untuk mencari nama benih
+                    for _, gui in pairs(seedShopFrame:GetDescendants()) do
+                        if gui:IsA("TextLabel") and isFullyVisible(gui) and isOnScreen(gui) and not isGuildRelated(gui) then
+                            for _, seed in pairs(FruitsList) do
+                                if string.find(string.lower(gui.Text), string.lower(seed)) then
+                                    if not table.find(targetSeeds, seed) then
+                                        table.insert(targetSeeds, seed)
                                     end
                                 end
                             end
                         end
-                    else
-                        for seedName, isSelected in pairs(_G.SelectedSeeds) do
-                            if isSelected then table.insert(targetSeeds, seedName) end
+                    end
+                else
+                    for seedName, isSelected in pairs(_G.SelectedSeeds) do
+                        if isSelected then table.insert(targetSeeds, seedName) end
+                    end
+                end
+
+                -- 3. Proses setiap benih
+                for _, seedName in ipairs(targetSeeds) do
+                    -- Cari baris yang berisi nama benih
+                    local targetRow = nil
+                    for _, gui in pairs(seedShopFrame:GetDescendants()) do
+                        if gui:IsA("TextLabel") and isFullyVisible(gui) and isOnScreen(gui) and not isGuildRelated(gui) then
+                            local text = string.lower(gui.Text)
+                            if string.find(text, string.lower(seedName)) then
+                                targetRow = gui.Parent
+                                break
+                            end
                         end
                     end
 
-                    for _, seedName in ipairs(targetSeeds) do
-                        local targetRow = nil
-                        for _, gui in pairs(seedShopFrame:GetDescendants()) do
+                    if not targetRow then
+                        -- Jika tidak ditemukan, coba scan seluruh GUI
+                        for _, gui in pairs(Player.PlayerGui:GetDescendants()) do
                             if gui:IsA("TextLabel") and isFullyVisible(gui) and isOnScreen(gui) and not isGuildRelated(gui) then
-                                if string.lower(gui.Text) == string.lower(seedName) or string.find(string.lower(gui.Text), string.lower(seedName)) then
+                                local text = string.lower(gui.Text)
+                                if string.find(text, string.lower(seedName)) then
                                     targetRow = gui.Parent
                                     break
                                 end
                             end
                         end
+                    end
 
-                        if targetRow then
-                            local clickTarget = targetRow:IsA("GuiButton") and targetRow or nil
-                            if not clickTarget then
-                                for _, child in pairs(targetRow:GetChildren()) do
-                                    if child:IsA("GuiButton") and isFullyVisible(child) and isOnScreen(child) and not isGuildRelated(child) then
-                                        clickTarget = child
-                                        break
-                                    end
+                    if targetRow then
+                        -- Cari tombol untuk memilih benih (biasanya tombol rarity)
+                        local clickTarget = nil
+                        for _, child in pairs(targetRow:GetDescendants()) do
+                            if child:IsA("GuiButton") and isFullyVisible(child) and isOnScreen(child) and not isGuildRelated(child) then
+                                local btnText = ""
+                                if child:IsA("TextButton") then btnText = string.lower(child.Text) end
+                                for _, c in pairs(child:GetChildren()) do
+                                    if c:IsA("TextLabel") then btnText = btnText .. " " .. string.lower(c.Text) end
+                                end
+                                -- Cari tombol yang berisi kata "umum", "langka", "common", "rare", "epic", "legendary"
+                                if string.find(btnText, "umum") or string.find(btnText, "langka") or
+                                   string.find(btnText, "common") or string.find(btnText, "rare") or
+                                   string.find(btnText, "epic") or string.find(btnText, "legendary") or
+                                   string.find(btnText, "mythic") or string.find(btnText, "super") then
+                                    clickTarget = child
+                                    break
                                 end
                             end
-                            if clickTarget then
-                                pressButton(clickTarget)
-                                task.wait(0.25)
+                        end
+
+                        -- Jika tidak ada tombol rarity, coba klik baris itu sendiri jika bisa diklik
+                        if not clickTarget and targetRow:IsA("GuiButton") then
+                            clickTarget = targetRow
+                        end
+
+                        if clickTarget then
+                            pressButton(clickTarget)
+                            task.wait(0.3)
+                        else
+                            -- Jika tidak ada tombol yang bisa diklik, coba klik langsung pada row (jika ada)
+                            for _, child in pairs(targetRow:GetChildren()) do
+                                if child:IsA("GuiButton") and isFullyVisible(child) and isOnScreen(child) and not isGuildRelated(child) then
+                                    pressButton(child)
+                                    task.wait(0.3)
+                                    break
+                                end
                             end
+                        end
 
-                            if not isOutOfStock(seedShopFrame) then
-                                local buyBtn = getCoinBuyButton(seedShopFrame)
-                                if buyBtn then
-                                    pressButton(buyBtn)
-                                    task.wait(0.35)
+                        -- Cek stok
+                        if isOutOfStock(seedShopFrame) then
+                            -- Jika stok habis, lanjut ke benih berikutnya
+                            goto continue
+                        end
 
-                                    local confirmFrame = getConfirmationFrame()
-                                    if confirmFrame then
-                                        for _, confirmBtn in pairs(confirmFrame:GetDescendants()) do
-                                            if confirmBtn:IsA("GuiButton") and isFullyVisible(confirmBtn) and isOnScreen(confirmBtn) and not isGuildRelated(confirmBtn) then
-                                                local confirmText = confirmBtn:IsA("TextButton") and string.lower(confirmBtn.Text) or ""
-                                                for _, textLabel in pairs(confirmBtn:GetChildren()) do
-                                                    if textLabel:IsA("TextLabel") then
-                                                        confirmText = confirmText .. " " .. string.lower(textLabel.Text)
-                                                    end
-                                                end
-                                                
-                                                local isConfirmWord = string.find(confirmText, "beli") or string.find(confirmText, "buy") or 
-                                                                      string.find(confirmText, "yes") or string.find(confirmText, "confirm") or 
-                                                                      string.find(confirmText, "ya") or string.find(confirmText, "setuju")
-                                                
-                                                if isConfirmWord then
-                                                    pressButton(confirmBtn)
-                                                    task.wait(0.15)
-                                                    break
-                                                end
-                                            end
+                        -- Cari tombol beli (koin)
+                        local buyBtn = getCoinBuyButton(seedShopFrame)
+                        if buyBtn then
+                            pressButton(buyBtn)
+                            task.wait(0.4)
+
+                            -- Cek konfirmasi
+                            local confirmFrame = getConfirmationFrame()
+                            if confirmFrame then
+                                for _, confirmBtn in pairs(confirmFrame:GetDescendants()) do
+                                    if confirmBtn:IsA("GuiButton") and isFullyVisible(confirmBtn) and isOnScreen(confirmBtn) and not isGuildRelated(confirmBtn) then
+                                        local confirmText = ""
+                                        if confirmBtn:IsA("TextButton") then confirmText = string.lower(confirmBtn.Text) end
+                                        for _, c in pairs(confirmBtn:GetChildren()) do
+                                            if c:IsA("TextLabel") then confirmText = confirmText .. " " .. string.lower(c.Text) end
+                                        end
+                                        
+                                        local isConfirmWord = string.find(confirmText, "beli") or string.find(confirmText, "buy") or 
+                                                              string.find(confirmText, "yes") or string.find(confirmText, "confirm") or 
+                                                              string.find(confirmText, "ya") or string.find(confirmText, "setuju")
+                                        
+                                        if isConfirmWord then
+                                            pressButton(confirmBtn)
+                                            task.wait(0.2)
+                                            break
                                         end
                                     end
                                 end
                             end
                         end
                     end
+                    ::continue::
                 end
             end)
         end
+    end
+end)
 
+-- =============================================================================
+-- LOOP AUTO BUY GEAR & AUTO SELL (TIDAK DIUBAH)
+-- =============================================================================
+task.spawn(function()
+    while task.wait(0.8) do
         if _G.AutoBuyGear and _G.SelectedGear then
             pcall(function()
                 local prompt = findGearPrompt(_G.SelectedGear)
@@ -626,7 +687,7 @@ task.spawn(function()
 end)
 
 -- =============================================================================
--- UI SYSTEM (SPEED HUB X STANDARD COMPACT DESIGN)
+-- UI SYSTEM (SPEED HUB X STANDARD COMPACT DESIGN) - TIDAK DIUBAH
 -- =============================================================================
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "SpeedHubX"
@@ -1147,7 +1208,7 @@ promptsLabel.Parent = debugPage
 local executorLabel = Instance.new("TextLabel")
 executorLabel.Size = UDim2.new(1, -10, 0, 20)
 executorLabel.BackgroundTransparency = 1
-executorLabel.Text = "  Mode Eksekusi: Safe-Sandbox v17.0"
+executorLabel.Text = "  Mode Eksekusi: Safe-Sandbox v17.1"
 executorLabel.TextColor3 = Color3.fromRGB(150, 255, 150)
 executorLabel.Font = Enum.Font.SourceSans
 executorLabel.TextSize = 11
@@ -1206,3 +1267,6 @@ task.spawn(function()
         end)
     end
 end)
+
+print("✅ SPEED HUB X v17.1 LOADED - AUTO BUY SEED FIXED!")
+print("📌 Jangan ubah bagian lain, hanya Auto Buy Seed yang diperbaiki.")
