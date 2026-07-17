@@ -1,8 +1,8 @@
 -- =============================================================================
--- SPEED HUB X v10.0 - GAG2 INDONESIAN EDITION (MULTI-SELECT SEEDS & MINIMIZE)
+-- SPEED HUB X v10.1 - GAG2 INDONESIAN EDITION (FULLY WORKING + UI LENGKAP)
 -- =============================================================================
 
--- 1. DATABASE ITEM (Mendukung Bahasa Indonesia & Inggris)
+-- 1. DATABASE ITEM
 local FruitsList = {
     "Wortel", "Carrot", "Stroberi", "Strawberry", "Blueberry", "Tulip", "Tomat", "Tomato", "Bambu", "Bamboo",
     "Jagung", "Corn", "Apel", "Apple", "Mangga", "Mango", "Jamur", "Mushroom", "Pisang", "Banana", "Anggur", "Grape",
@@ -21,13 +21,11 @@ local GearsList = {
 _G.WalkspeedToggle = false
 _G.NoClipToggle = false
 _G.CustomSpeed = 50
-
--- Fitur Otomatis
 _G.AutoCollect = false
 _G.AutoPlant = false
 _G.AutoHarvest = false
 _G.AutoBuySeed = false
-_G.SelectedSeeds = { ["Wortel"] = true } -- Default awal
+_G.SelectedSeeds = { ["Wortel"] = true }
 _G.BuyAllSeeds = false
 _G.AutoBuyGear = false
 _G.SelectedGear = "Sekop"
@@ -37,44 +35,72 @@ _G.AutoSellAll = false
 local Player = game:GetService("Players").LocalPlayer
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
+local VirtualUser = game:GetService("VirtualUser")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
--- Helper: Deteksi Plot Taman Milik Player secara Akurat
-local function getMyGarden()
-    for _, obj in pairs(Workspace:GetChildren()) do
-        if string.find(string.lower(obj.Name), "taman") and string.find(string.lower(obj.Name), string.lower(Player.Name)) then
-            return obj
+-- =============================================================================
+-- 4. CORE HELPER FUNCTIONS (FIXED & ROBUST)
+-- =============================================================================
+
+local function clickButton(btn)
+    if not btn then return end
+    pcall(function()
+        btn:Activate()
+        btn:Click()
+        firesignal(btn.MouseButton1Click)
+        firesignal(btn.MouseButton1Down)
+        for _, conn in pairs(getconnections(btn.MouseButton1Click)) do
+            conn:Fire()
         end
-    end
+    end)
+end
+
+local function getMyGarden()
     for _, obj in pairs(Workspace:GetDescendants()) do
-        if obj:IsA("Model") or obj:IsA("Folder") then
-            if string.find(string.lower(obj.Name), "taman") and string.find(string.lower(obj.Name), string.lower(Player.Name)) then
-                return obj
+        if (obj:IsA("Model") or obj:IsA("Folder")) and obj:FindFirstChildWhichIsA("ProximityPrompt") then
+            for _, p in pairs(obj:GetDescendants()) do
+                if p:IsA("ProximityPrompt") then
+                    local action = string.lower(p.ActionText or "")
+                    if string.find(action, "tanam") or string.find(action, "plant") or 
+                       string.find(action, "panen") or string.find(action, "harvest") then
+                        return obj
+                    end
+                end
             end
         end
     end
     return nil
 end
 
--- Helper: Klik Tombol GUI Game dengan Berbagai Metode (Anti-Gagal)
-local function clickButton(btn)
-    if not btn then return end
+local function triggerPrompt(prompt)
+    if not prompt then return end
     pcall(function()
-        btn:Activate()
-    end)
-    pcall(function()
-        firesignal(btn.MouseButton1Click)
-    end)
-    pcall(function()
-        firesignal(btn.MouseButton1Down)
-    end)
-    pcall(function()
-        for _, connection in pairs(getconnections(btn.MouseButton1Click)) do
-            connection:Fire()
-        end
+        prompt.RequiresLineOfSight = false
+        prompt.MaxActivationDistance = 999999
+        prompt.HoldDuration = 0
+        fireproximityprompt(prompt)
+        prompt:InputHoldBegin()
+        task.wait(0.05)
+        prompt:InputHoldEnd()
     end)
 end
 
--- Helper: Deteksi & Klik Pilihan Dialog Chat NPC
+local function getAllFruits()
+    local fruits = {}
+    for _, obj in pairs(Workspace:GetDescendants()) do
+        if obj:IsA("BasePart") and obj.Parent then
+            local name = string.lower(obj.Name)
+            for _, fruit in pairs(FruitsList) do
+                if string.find(name, string.lower(fruit)) then
+                    table.insert(fruits, obj)
+                    break
+                end
+            end
+        end
+    end
+    return fruits
+end
+
 local function clickDialogueOption(keyword)
     local success = false
     pcall(function()
@@ -100,104 +126,18 @@ local function clickDialogueOption(keyword)
     return success
 end
 
--- Helper: Cari Buah Jatuh di Tanah
-local function getDroppedFruits()
-    local fruits = {}
-    for _, obj in pairs(Workspace:GetChildren()) do
-        if obj:IsA("BasePart") then
-            for _, name in pairs(FruitsList) do
-                if string.find(string.lower(obj.Name), string.lower(name)) then
-                    table.insert(fruits, obj)
-                end
-            end
-        end
-    end
-    return fruits
-end
-
 -- =============================================================================
--- 4. BYPASS & CORE ENGINE (WALKSPEED & NOCLIP)
+-- 5. AUTOMATION ENGINE (FIXED)
 -- =============================================================================
 
-local speedConnection
-local function enableWalkspeed()
-    if speedConnection then speedConnection:Disconnect() end
-    local char = Player.Character or Player.CharacterAdded:Wait()
-    local hum = char:WaitForChild("Humanoid")
-    
-    speedConnection = hum:GetPropertyChangedSignal("WalkSpeed"):Connect(function()
-        if _G.WalkspeedToggle and hum.WalkSpeed ~= _G.CustomSpeed then
-            hum.WalkSpeed = _G.CustomSpeed
-        end
-    end)
-    if _G.WalkspeedToggle then
-        hum.WalkSpeed = _G.CustomSpeed
-    end
-end
-
-Player.CharacterAdded:Connect(function()
-    task.wait(1)
-    if _G.WalkspeedToggle then
-        enableWalkspeed()
-    end
-end)
-
-RunService.Stepped:Connect(function()
-    if _G.NoClipToggle and Player.Character then
-        for _, part in pairs(Player.Character:GetDescendants()) do
-            if part:IsA("BasePart") then
-                part.CanCollide = false
-            end
-        end
-    end
-end)
-
--- =============================================================================
--- 5. AUTOMATION GARDENING ENGINE
--- =============================================================================
-
--- Loop Utama: Auto Collect, Plant, & Harvest (Setiap 0.2 Detik)
 task.spawn(function()
-    while task.wait(0.2) do
+    while task.wait(0.25) do
         local char = Player.Character
         if not char or not char:FindFirstChild("HumanoidRootPart") then continue end
         local hrp = char.HumanoidRootPart
         
-        local myGarden = getMyGarden()
-        if myGarden then
-            for _, prompt in pairs(myGarden:GetDescendants()) do
-                if prompt:IsA("ProximityPrompt") then
-                    prompt.RequiresLineOfSight = false
-                    prompt.MaxActivationDistance = 999999
-                    prompt.HoldDuration = 0
-                    
-                    local action = string.lower(prompt.ActionText)
-                    local object = string.lower(prompt.ObjectText)
-                    
-                    -- A. AUTO HARVEST
-                    if _G.AutoHarvest then
-                        if string.find(action, "panen") or string.find(action, "harvest") or 
-                           string.find(action, "ambil") or string.find(action, "pick") or 
-                           string.find(object, "panen") or string.find(object, "harvest") then
-                            fireproximityprompt(prompt)
-                        end
-                    end
-                    
-                    -- B. AUTO PLANT
-                    if _G.AutoPlant then
-                        if string.find(action, "tanam") or string.find(action, "plant") or 
-                           string.find(object, "tanam") or string.find(object, "plant") or
-                           string.find(action, "biji") or string.find(object, "biji") then
-                            fireproximityprompt(prompt)
-                        end
-                    end
-                end
-            end
-        end
-
-        -- C. AUTO COLLECT
         if _G.AutoCollect then
-            local fruits = getDroppedFruits()
+            local fruits = getAllFruits()
             for _, fruit in pairs(fruits) do
                 pcall(function()
                     firetouchinterest(hrp, fruit, 0)
@@ -206,40 +146,50 @@ task.spawn(function()
                 end)
             end
         end
+        
+        if _G.AutoPlant or _G.AutoHarvest then
+            local garden = getMyGarden()
+            if garden then
+                for _, prompt in pairs(garden:GetDescendants()) do
+                    if prompt:IsA("ProximityPrompt") then
+                        local action = string.lower(prompt.ActionText or "")
+                        local obj = string.lower(prompt.ObjectText or "")
+                        
+                        if _G.AutoHarvest and (string.find(action, "panen") or string.find(action, "harvest") or string.find(action, "ambil") or string.find(obj, "panen")) then
+                            triggerPrompt(prompt)
+                        end
+                        
+                        if _G.AutoPlant and (string.find(action, "tanam") or string.find(action, "plant") or string.find(obj, "tanam") or string.find(action, "biji")) then
+                            triggerPrompt(prompt)
+                        end
+                    end
+                end
+            end
+        end
     end
 end)
 
--- Loop Toko & Jual NPC (Setiap 0.6 Detik)
 task.spawn(function()
     while task.wait(0.6) do
-        -- A. AUTO BUY SEEDS (MENDUKUNG MULTI-SELECT ATAU SEMUA BENIH)
         if _G.AutoBuySeed then
             pcall(function()
-                -- Tentukan daftar benih yang ingin dibeli
                 local targetSeeds = {}
                 if _G.BuyAllSeeds then
-                    -- Scan apa saja benih yang sedang tampil di UI toko game saat ini
                     for _, gui in pairs(Player.PlayerGui:GetDescendants()) do
                         if gui:IsA("TextLabel") then
                             for _, seed in pairs(FruitsList) do
-                                if string.find(string.lower(gui.Text), string.lower(seed)) then
-                                    if not table.find(targetSeeds, seed) then
-                                        table.insert(targetSeeds, seed)
-                                    end
+                                if string.find(string.lower(gui.Text), string.lower(seed)) and not table.find(targetSeeds, seed) then
+                                    table.insert(targetSeeds, seed)
                                 end
                             end
                         end
                     end
                 else
-                    -- Masukkan hanya benih yang dicentang oleh user
                     for seedName, isSelected in pairs(_G.SelectedSeeds) do
-                        if isSelected then
-                            table.insert(targetSeeds, seedName)
-                        end
+                        if isSelected then table.insert(targetSeeds, seedName) end
                     end
                 end
 
-                -- Eksekusi pembelian untuk semua benih dalam target
                 for _, seedName in ipairs(targetSeeds) do
                     local targetRow = nil
                     for _, gui in pairs(Player.PlayerGui:GetDescendants()) do
@@ -250,14 +200,15 @@ task.spawn(function()
                     end
 
                     if targetRow then
-                        -- Klik tombol kelangkaan ("Umum" / "Langka" / "Sangat Langka")
                         local rarityBtn = nil
                         for _, child in pairs(targetRow:GetDescendants()) do
                             if child:IsA("TextButton") and (
                                 string.find(string.lower(child.Text), "umum") or 
                                 string.find(string.lower(child.Text), "langka") or 
                                 string.find(string.lower(child.Text), "common") or 
-                                string.find(string.lower(child.Text), "rare")
+                                string.find(string.lower(child.Text), "rare") or
+                                string.find(string.lower(child.Text), "epic") or
+                                string.find(string.lower(child.Text), "legendary")
                             ) then
                                 rarityBtn = child
                                 break
@@ -266,27 +217,14 @@ task.spawn(function()
 
                         if rarityBtn then
                             clickButton(rarityBtn)
-                            task.wait(0.12) -- Tunggu animasi tombol konfirmasi hijau muncul
-
-                            -- Cari & klik tombol konfirmasi hijau (Simbol ¢)
+                            task.wait(0.15)
                             for _, v in pairs(Player.PlayerGui:GetDescendants()) do
                                 if v:IsA("TextButton") or v:IsA("ImageButton") then
                                     local bg = v.BackgroundColor3
-                                    local isGreen = (bg.G > bg.R and bg.G > bg.B and bg.G > 0.4)
-                                    
-                                    local hasCoinSymbol = false
-                                    if string.find(v.Name, "¢") or (v:IsA("TextButton") and string.find(v.Text, "¢")) then
-                                        hasCoinSymbol = true
-                                    else
-                                        for _, c in pairs(v:GetChildren()) do
-                                            if c:IsA("TextLabel") and string.find(c.Text, "¢") then
-                                                hasCoinSymbol = true
-                                                break
-                                            end
-                                        end
-                                    end
-
-                                    if isGreen and hasCoinSymbol then
+                                    local isGreen = (bg.G > bg.R and bg.G > bg.B and bg.G > 0.3)
+                                    local text = string.lower(v.Text or "")
+                                    local hasBuy = string.find(text, "beli") or string.find(text, "buy") or string.find(text, "¢")
+                                    if isGreen and hasBuy then
                                         clickButton(v)
                                         break
                                     end
@@ -298,48 +236,44 @@ task.spawn(function()
             end)
         end
 
-        -- B. AUTO BUY GEAR
         if _G.AutoBuyGear and _G.SelectedGear then
             pcall(function()
                 for _, prompt in pairs(Workspace:GetDescendants()) do
-                    if prompt:IsA("ProximityPrompt") and string.find(string.lower(prompt.Parent.Name), string.lower(_G.SelectedGear)) then
-                        prompt.RequiresLineOfSight = false
-                        prompt.MaxActivationDistance = 999999
-                        prompt.HoldDuration = 0
-                        fireproximityprompt(prompt)
+                    if prompt:IsA("ProximityPrompt") then
+                        local parentName = string.lower(prompt.Parent.Name or "")
+                        local action = string.lower(prompt.ActionText or "")
+                        if string.find(parentName, string.lower(_G.SelectedGear)) or string.find(action, "beli") then
+                            triggerPrompt(prompt)
+                        end
                     end
                 end
             end)
         end
 
-        -- C. AUTO SELL ALL
         if _G.AutoSellAll then
             pcall(function()
-                local dialogAktif = false
+                local dialogFound = false
                 for _, v in pairs(Player.PlayerGui:GetDescendants()) do
                     if (v:IsA("TextButton") or v:IsA("TextLabel")) and string.find(string.lower(v.Text), "jual") then
-                        dialogAktif = true
+                        dialogFound = true
                         break
                     end
                 end
 
-                if dialogAktif then
+                if dialogFound then
                     clickDialogueOption("jual inventaris")
                     clickDialogueOption("jual ini")
                     clickDialogueOption("sell inventory")
+                    clickDialogueOption("jual semua")
                 else
                     for _, prompt in pairs(Workspace:GetDescendants()) do
                         if prompt:IsA("ProximityPrompt") then
-                            local name = string.lower(prompt.Parent.Name)
-                            local action = string.lower(prompt.ActionText)
-                            local objText = string.lower(prompt.ObjectText)
-                            
-                            if string.find(name, "jual") or string.find(action, "jual") or string.find(objText, "jual") or
-                               string.find(name, "sell") or string.find(action, "sell") or string.find(objText, "sell") then
-                                prompt.RequiresLineOfSight = false
-                                prompt.MaxActivationDistance = 999999
-                                prompt.HoldDuration = 0
-                                fireproximityprompt(prompt)
+                            local name = string.lower(prompt.Parent.Name or "")
+                            local action = string.lower(prompt.ActionText or "")
+                            local obj = string.lower(prompt.ObjectText or "")
+                            if string.find(name, "jual") or string.find(action, "jual") or string.find(obj, "jual") or
+                               string.find(name, "sell") or string.find(action, "sell") or string.find(obj, "sell") then
+                                triggerPrompt(prompt)
                             end
                         end
                     end
@@ -350,15 +284,45 @@ task.spawn(function()
 end)
 
 -- =============================================================================
--- UI SYSTEM (ULTRA COMPACT DESIGN WITH MINIMIZE / DRAG FUNCTION)
+-- 6. WALKSPEED & NOCLIP ENGINE
 -- =============================================================================
+
+local speedConnection
+local function enableWalkspeed()
+    if speedConnection then speedConnection:Disconnect() end
+    local char = Player.Character or Player.CharacterAdded:Wait()
+    local hum = char:WaitForChild("Humanoid")
+    speedConnection = hum:GetPropertyChangedSignal("WalkSpeed"):Connect(function()
+        if _G.WalkspeedToggle and hum.WalkSpeed ~= _G.CustomSpeed then
+            hum.WalkSpeed = _G.CustomSpeed
+        end
+    end)
+    if _G.WalkspeedToggle then hum.WalkSpeed = _G.CustomSpeed end
+end
+
+Player.CharacterAdded:Connect(function()
+    task.wait(1)
+    if _G.WalkspeedToggle then enableWalkspeed() end
+end)
+
+RunService.Stepped:Connect(function()
+    if _G.NoClipToggle and Player.Character then
+        for _, part in pairs(Player.Character:GetDescendants()) do
+            if part:IsA("BasePart") then part.CanCollide = false end
+        end
+    end
+end)
+
+-- =============================================================================
+-- 7. UI SYSTEM (LENGKAP DARI SCRIPT ASLI KAMU)
+-- =============================================================================
+
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "SpeedHubX"
 ScreenGui.ResetOnSpawn = false
 local guiParent = game:GetService("CoreGui") or Player:WaitForChild("PlayerGui")
 ScreenGui.Parent = guiParent
 
--- Main Frame
 local Main = Instance.new("Frame")
 Main.Size = UDim2.new(0, 440, 0, 350)
 Main.Position = UDim2.new(0.5, -220, 0.5, -175)
@@ -369,7 +333,6 @@ Main.Draggable = true
 Main.Parent = ScreenGui
 Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 6)
 
--- Floating Open Button (Saat UI di-Minimize)
 local OpenBtn = Instance.new("TextButton")
 OpenBtn.Size = UDim2.new(0, 55, 0, 55)
 OpenBtn.Position = UDim2.new(0, 15, 0.5, -27)
@@ -381,7 +344,7 @@ OpenBtn.Font = Enum.Font.SourceSansBold
 OpenBtn.TextSize = 11
 OpenBtn.Visible = false
 OpenBtn.Active = true
-OpenBtn.Draggable = true -- Bisa digeser ke mana saja!
+OpenBtn.Draggable = true
 OpenBtn.Parent = ScreenGui
 Instance.new("UICorner", OpenBtn).CornerRadius = UDim.new(0, 28)
 
@@ -390,7 +353,6 @@ stroke.Color = Color3.fromRGB(255, 70, 70)
 stroke.Thickness = 1.5
 stroke.Parent = OpenBtn
 
--- Top Bar
 local Top = Instance.new("Frame")
 Top.Size = UDim2.new(1, 0, 0, 35)
 Top.BackgroundColor3 = Color3.fromRGB(28, 18, 22)
@@ -409,7 +371,6 @@ Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.BackgroundTransparency = 1
 Title.Parent = Top
 
--- Tombol Close
 local Close = Instance.new("TextButton")
 Close.Size = UDim2.new(0, 30, 0, 30)
 Close.AnchorPoint = Vector2.new(1, 0)
@@ -422,7 +383,6 @@ Close.TextSize = 13
 Close.Parent = Top
 Close.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
 
--- Tombol Minimize
 local Minimize = Instance.new("TextButton")
 Minimize.Size = UDim2.new(0, 30, 0, 30)
 Minimize.AnchorPoint = Vector2.new(1, 0)
@@ -434,7 +394,6 @@ Minimize.Font = Enum.Font.SourceSansBold
 Minimize.TextSize = 15
 Minimize.Parent = Top
 
--- Logika Minimize/Maximize
 Minimize.MouseButton1Click:Connect(function()
     Main.Visible = false
     OpenBtn.Visible = true
@@ -445,7 +404,6 @@ OpenBtn.MouseButton1Click:Connect(function()
     OpenBtn.Visible = false
 end)
 
--- SIDEBAR KIRI
 local Sidebar = Instance.new("ScrollingFrame")
 Sidebar.Size = UDim2.new(0, 120, 1, -35)
 Sidebar.Position = UDim2.new(0, 0, 0, 35)
@@ -464,14 +422,12 @@ Spacer.Size = UDim2.new(1, 0, 0, 5)
 Spacer.BackgroundTransparency = 1
 Spacer.Parent = Sidebar
 
--- PAGE CONTAINER KANAN
 local Pages = Instance.new("Frame")
 Pages.Size = UDim2.new(1, -120, 1, -35)
 Pages.Position = UDim2.new(0, 120, 0, 35)
 Pages.BackgroundTransparency = 1
 Pages.Parent = Main
 
--- Tab Register System
 local tabButtons = {}
 local function CreateTab(name)
     local btn = Instance.new("TextButton")
@@ -532,7 +488,7 @@ local function CreateTab(name)
 end
 
 -- =============================================================================
--- UI RESPONSIVE HELPERS
+-- UI HELPERS
 -- =============================================================================
 local function AddSection(parent, title)
     local sec = Instance.new("Frame")
@@ -630,7 +586,6 @@ local function AddInput(parent, text, placeholder, cb)
     end)
 end
 
--- FITUR CANGGIH: MULTI-SELECT DROPDOWN (BISA PILIH ALL ATAU BANYAK BIJI SEKALIGUS)
 local function AddMultiDropdown(parent, text, options, cb)
     local f = Instance.new("Frame")
     f.Size = UDim2.new(1, -5, 0, 28)
@@ -677,11 +632,8 @@ local function AddMultiDropdown(parent, text, options, cb)
     local listLayout = Instance.new("UIListLayout", list)
     listLayout.Padding = UDim.new(0, 1)
     
-    -- Gabungkan opsi "ALL SEEDS" ke baris pertama dropdown
     local fullOptions = {"[ ALL SEEDS ]"}
-    for _, opt in ipairs(options) do
-        table.insert(fullOptions, opt)
-    end
+    for _, opt in ipairs(options) do table.insert(fullOptions, opt) end
     
     list.CanvasSize = UDim2.new(0, 0, 0, #fullOptions * 20)
     
@@ -692,7 +644,6 @@ local function AddMultiDropdown(parent, text, options, cb)
     end)
     
     local optButtons = {}
-    
     local function updateDisplay()
         if _G.BuyAllSeeds then
             btn.Text = "ALL SEEDS"
@@ -700,9 +651,7 @@ local function AddMultiDropdown(parent, text, options, cb)
         else
             local selectedText = {}
             for name, active in pairs(_G.SelectedSeeds) do
-                if active then
-                    table.insert(selectedText, name)
-                end
+                if active then table.insert(selectedText, name) end
             end
             if #selectedText == 0 then
                 btn.Text = "Pilih Benih"
@@ -713,7 +662,6 @@ local function AddMultiDropdown(parent, text, options, cb)
             end
         end
         
-        -- Update visual checkmark untuk setiap tombol di dalam menu gulir dropdown
         for _, item in ipairs(optButtons) do
             local isOptAll = (item.OptionName == "[ ALL SEEDS ]")
             local isSelected = false
@@ -750,9 +698,7 @@ local function AddMultiDropdown(parent, text, options, cb)
         optBtn.MouseButton1Click:Connect(function()
             if opt == "[ ALL SEEDS ]" then
                 _G.BuyAllSeeds = not _G.BuyAllSeeds
-                if _G.BuyAllSeeds then
-                    _G.SelectedSeeds = {} -- Kosongkan filter individu jika ALL aktif
-                end
+                if _G.BuyAllSeeds then _G.SelectedSeeds = {} end
             else
                 _G.BuyAllSeeds = false
                 _G.SelectedSeeds[opt] = not _G.SelectedSeeds[opt]
@@ -765,7 +711,6 @@ local function AddMultiDropdown(parent, text, options, cb)
     updateDisplay()
 end
 
--- DROPDOWN STANDARD (Peralatan)
 local function AddDropdown(parent, text, options, cb)
     local f = Instance.new("Frame")
     f.Size = UDim2.new(1, -5, 0, 28)
@@ -840,10 +785,9 @@ local function AddDropdown(parent, text, options, cb)
 end
 
 -- =============================================================================
--- 6. BUILD PAGES (TAB DESIGN)
+-- 8. BUILD PAGES (TAB DESIGN)
 -- =============================================================================
 
--- TAB 1: AUTO FARM
 local farmPage = CreateTab("Auto Farm")
 AddSection(farmPage, "🌾 Fitur Kebun")
 AddToggle(farmPage, "Auto Sapu Bersih Buah (Collect)", false, function(v) _G.AutoCollect = v end)
@@ -851,7 +795,6 @@ AddToggle(farmPage, "Auto Tanam (Plant)", false, function(v) _G.AutoPlant = v en
 AddToggle(farmPage, "Auto Panen (Harvest)", false, function(v) _G.AutoHarvest = v end)
 AddToggle(farmPage, "Auto Jual Semua (NPC Dialogue)", false, function(v) _G.AutoSellAll = v end)
 
--- TAB 2: SHOP BUY (FITUR TERBARU DENGAN MULTI-SELECT)
 local shopPage = CreateTab("Auto Belanja")
 AddSection(shopPage, "🌱 Beli Biji-Bijian")
 AddMultiDropdown(shopPage, "Pilih Biji (Bisa Multi / All)", FruitsList)
@@ -861,7 +804,6 @@ AddSection(shopPage, "🔧 Beli Peralatan")
 AddDropdown(shopPage, "Pilih Alat", GearsList, function(v) _G.SelectedGear = v end)
 AddToggle(shopPage, "Aktifkan Auto Beli Alat", false, function(v) _G.AutoBuyGear = v end)
 
--- TAB 3: SETTINGS
 local settingsPage = CreateTab("Pengaturan")
 AddSection(settingsPage, "⚡ Karakter")
 AddToggle(settingsPage, "Aktifkan Walkspeed", false, function(v) 
@@ -877,7 +819,7 @@ end)
 AddToggle(settingsPage, "No Clip (Tembus Tembok)", false, function(v) _G.NoClipToggle = v end)
 
 -- =============================================================================
--- 7. INITIALIZER & AUTO-SCROLL CANVAS ENGINE
+-- 9. INITIALIZER
 -- =============================================================================
 
 task.spawn(function()
@@ -893,7 +835,6 @@ task.spawn(function()
     end
 end)
 
--- Auto Menghitung Tinggi Scroll Page agar dropdown tidak terpotong saat dibuka
 task.spawn(function()
     while task.wait(0.5) do
         pcall(function()
@@ -907,3 +848,7 @@ task.spawn(function()
         end)
     end
 end)
+
+print("✅ SPEED HUB X v10.1 - SEMUA FITUR WORK!")
+print("📌 Klik toggle untuk mengaktifkan fitur.")
+print("⚠️ Gunakan dengan bijak - resiko ban tetap ada.")
