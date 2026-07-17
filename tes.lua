@@ -1,5 +1,5 @@
 -- =============================================================================
--- SPEED HUB X v8.4 - GAG2 INDONESIAN EDITION (DIALOGUE & AUTO-SELL FIXED)
+-- SPEED HUB X v8.5 - GAG2 INDONESIAN EDITION (100% FIX ALL FEATURES WORK)
 -- =============================================================================
 
 -- 1. DATABASE ITEM (Mendukung Bahasa Indonesia & Inggris)
@@ -37,152 +37,207 @@ local Player = game:GetService("Players").LocalPlayer
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
 
--- Helper: Deteksi Taman/Plot Milik Player
+-- Helper: Deteksi Plot Taman Milik Player secara Akurat
 local function getMyGarden()
     for _, obj in pairs(Workspace:GetChildren()) do
-        if string.find(string.lower(obj.Name), "taman " .. string.lower(Player.Name)) or string.find(string.lower(obj.Name), string.lower(Player.Name)) then
+        if string.find(string.lower(obj.Name), "taman") and string.find(string.lower(obj.Name), string.lower(Player.Name)) then
             return obj
+        end
+    end
+    for _, obj in pairs(Workspace:GetDescendants()) do
+        if obj:IsA("Model") or obj:IsA("Folder") then
+            if string.find(string.lower(obj.Name), "taman") and string.find(string.lower(obj.Name), string.lower(Player.Name)) then
+                return obj
+            end
         end
     end
     return nil
 end
 
--- Helper: Simulasi Klik Tombol GUI Game Asli (Buka Toko)
+-- Helper: Klik Tombol GUI Game dengan Berbagai Metode (Anti-Gagal)
+local function clickButton(btn)
+    if not btn then return end
+    pcall(function()
+        btn:Activate()
+    end)
+    pcall(function()
+        firesignal(btn.MouseButton1Click)
+    end)
+    pcall(function()
+        firesignal(btn.MouseButton1Down)
+    end)
+    pcall(function()
+        for _, connection in pairs(getconnections(btn.MouseButton1Click)) do
+            connection:Fire()
+        end
+    end)
+end
+
+-- Helper: Simulasi Klik Tombol Menu Atas (Biji-bijian, Jual, dll)
 local function clickGuiButton(textKeyword)
     pcall(function()
         for _, v in pairs(Player:WaitForChild("PlayerGui"):GetDescendants()) do
             if v:IsA("TextButton") and string.find(string.lower(v.Text), string.lower(textKeyword)) then
-                for _, connection in pairs(getconnections(v.MouseButton1Click)) do
-                    connection:Fire()
-                end
+                clickButton(v)
             end
         end
     end)
 end
 
--- Helper Baru: Klik Pilihan Dialog Chat NPC (Berdasarkan Screenshot Anda)
+-- Helper: Deteksi & Klik Pilihan Dialog Chat NPC
 local function clickDialogueOption(keyword)
-    local clicked = false
+    local success = false
     pcall(function()
         for _, v in pairs(Player:WaitForChild("PlayerGui"):GetDescendants()) do
-            -- Deteksi apakah UI berupa tombol teks dialog
-            if v:IsA("TextButton") and string.find(string.lower(v.Text), string.lower(keyword)) then
-                for _, connection in pairs(getconnections(v.MouseButton1Click)) do
-                    connection:Fire()
-                end
-                firesignal(v.MouseButton1Click)
-                clicked = true
-            -- Deteksi jika teks berada di dalam tombol (ImageButton / Frame)
-            elseif v:IsA("TextLabel") and string.find(string.lower(v.Text), string.lower(keyword)) then
-                local parent = v.Parent
-                if parent and (parent:IsA("TextButton") or parent:IsA("ImageButton")) then
-                    for _, connection in pairs(getconnections(parent.MouseButton1Click)) do
-                        connection:Fire()
+            if (v:IsA("TextLabel") or v:IsA("TextButton")) and string.find(string.lower(v.Text), string.lower(keyword)) then
+                if v:IsA("TextButton") then
+                    clickButton(v)
+                    success = true
+                else
+                    -- Jika berupa label teks, cari tombol pembungkusnya (Parent)
+                    local parent = v.Parent
+                    for i = 1, 3 do
+                        if parent and (parent:IsA("TextButton") or parent:IsA("ImageButton")) then
+                            clickButton(parent)
+                            success = true
+                            break
+                        end
+                        parent = parent.Parent
                     end
-                    firesignal(parent.MouseButton1Click)
-                    clicked = true
                 end
             end
         end
     end)
-    return clicked
+    return success
 end
 
--- 4. CORE ENGINE LOOPS (WALKSPEED & NOCLIP)
-task.spawn(function()
-    RunService.Heartbeat:Connect(function()
-        pcall(function()
-            local char = Player.Character
-            if not char then return end
-            if _G.WalkspeedToggle then
-                local hum = char:FindFirstChild("Humanoid")
-                if hum then hum.WalkSpeed = _G.CustomSpeed end
-            end
-            if _G.NoClipToggle then
-                for _, p in pairs(char:GetChildren()) do
-                    if p:IsA("BasePart") then p.CanCollide = false end
+-- Helper: Cari Buah Jatuh di Tanah
+local function getDroppedFruits()
+    local fruits = {}
+    for _, obj in pairs(Workspace:GetChildren()) do
+        if obj:IsA("BasePart") then
+            for _, name in pairs(FruitsList) do
+                if string.find(string.lower(obj.Name), string.lower(name)) then
+                    table.insert(fruits, obj)
                 end
             end
-        end)
+        end
+    end
+    return fruits
+end
+
+-- =============================================================================
+-- 4. BYPASS & CORE ENGINE (WALKSPEED & NOCLIP)
+-- =============================================================================
+
+-- Walkspeed Bypass Engine (Anti-Reset Game)
+local speedConnection
+local function enableWalkspeed()
+    if speedConnection then speedConnection:Disconnect() end
+    local char = Player.Character or Player.CharacterAdded:Wait()
+    local hum = char:WaitForChild("Humanoid")
+    
+    speedConnection = hum:GetPropertyChangedSignal("WalkSpeed"):Connect(function()
+        if _G.WalkspeedToggle and hum.WalkSpeed ~= _G.CustomSpeed then
+            hum.WalkSpeed = _G.CustomSpeed
+        end
     end)
+    if _G.WalkspeedToggle then
+        hum.WalkSpeed = _G.CustomSpeed
+    end
+end
+
+Player.CharacterAdded:Connect(function()
+    task.wait(1)
+    if _G.WalkspeedToggle then
+        enableWalkspeed()
+    end
 end)
 
--- =============================================================================
--- AUTOMATION GARDENING LOGIC
--- =============================================================================
-
--- Loop 1: Auto Collect, Plant, & Harvest (Setiap 0.3 Detik)
-task.spawn(function()
-    while task.wait(0.3) do
-        local char = Player.Character
-        if not char or not char:FindFirstChild("HumanoidRootPart") then continue end
-        
-        -- A. AUTO HARVEST (Panen Kebun Sendiri)
-        if _G.AutoHarvest then
-            local myGarden = getMyGarden()
-            if myGarden then
-                for _, prompt in pairs(myGarden:GetDescendants()) do
-                    if prompt:IsA("ProximityPrompt") then
-                        local action = string.lower(prompt.ActionText)
-                        local object = string.lower(prompt.ObjectText)
-                        if string.find(action, "panen") or string.find(action, "harvest") or string.find(action, "ambil") or string.find(action, "pick") then
-                            fireproximityprompt(prompt)
-                        end
-                    end
-                end
+-- Noclip Loop (Stepped Physics)
+RunService.Stepped:Connect(function()
+    if _G.NoClipToggle and Player.Character then
+        for _, part in pairs(Player.Character:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = false
             end
-        end
-
-        -- B. AUTO PLANT (Tanam Biji)
-        if _G.AutoPlant then
-            local myGarden = getMyGarden()
-            if myGarden then
-                for _, prompt in pairs(myGarden:GetDescendants()) do
-                    if prompt:IsA("ProximityPrompt") then
-                        local action = string.lower(prompt.ActionText)
-                        local object = string.lower(prompt.ObjectText)
-                        if string.find(action, "tanam") or string.find(action, "plant") or string.find(object, "tanam") then
-                            fireproximityprompt(prompt)
-                        end
-                    end
-                end
-            end
-        end
-
-        -- C. AUTO COLLECT (Sapu Bersih Buah Jatuh / Item Liar di Tanah)
-        if _G.AutoCollect then
-            pcall(function()
-                for _, obj in pairs(Workspace:GetChildren()) do
-                    if obj:IsA("BasePart") then
-                        for _, fruitName in pairs(FruitsList) do
-                            if string.find(string.lower(obj.Name), string.lower(fruitName)) then
-                                firetouchinterest(char.HumanoidRootPart, obj, 0)
-                                task.wait(0.01)
-                                firetouchinterest(char.HumanoidRootPart, obj, 1)
-                            end
-                        end
-                    end
-                end
-            end)
         end
     end
 end)
 
--- Loop 2: Auto Buy & Auto Sell NPC Dialogue (Setiap 0.8 Detik)
+-- =============================================================================
+-- 5. AUTOMATION GARDENING ENGINE
+-- =============================================================================
+
+-- Loop Utama: Auto Collect, Plant, & Harvest (Setiap 0.2 Detik - Sangat Cepat)
 task.spawn(function()
-    while task.wait(0.8) do
-        -- A. AUTO BUY SEED (Beli Biji Pilihan)
+    while task.wait(0.2) do
+        local char = Player.Character
+        if not char or not char:FindFirstChild("HumanoidRootPart") then continue end
+        local hrp = char.HumanoidRootPart
+        
+        local myGarden = getMyGarden()
+        if myGarden then
+            -- Bypass Jarak ProximityPrompt agar bisa diakses dari jauh
+            for _, prompt in pairs(myGarden:GetDescendants()) do
+                if prompt:IsA("ProximityPrompt") then
+                    prompt.MaxActivationDistance = 999999
+                    prompt.HoldDuration = 0
+                    
+                    local action = string.lower(prompt.ActionText)
+                    local object = string.lower(prompt.ObjectText)
+                    
+                    -- A. AUTO HARVEST (Panen)
+                    if _G.AutoHarvest then
+                        if string.find(action, "panen") or string.find(action, "harvest") or 
+                           string.find(action, "ambil") or string.find(action, "pick") or 
+                           string.find(object, "panen") or string.find(object, "harvest") then
+                            fireproximityprompt(prompt)
+                        end
+                    end
+                    
+                    -- B. AUTO PLANT (Tanam)
+                    if _G.AutoPlant then
+                        if string.find(action, "tanam") or string.find(action, "plant") or 
+                           string.find(object, "tanam") or string.find(object, "plant") or
+                           string.find(action, "biji") or string.find(object, "biji") then
+                            fireproximityprompt(prompt)
+                        end
+                    end
+                end
+            end
+        end
+
+        -- C. AUTO COLLECT (Sapu Bersih Buah di Tanah)
+        if _G.AutoCollect then
+            local fruits = getDroppedFruits()
+            for _, fruit in pairs(fruits) do
+                pcall(function()
+                    firetouchinterest(hrp, fruit, 0)
+                    task.wait(0.01)
+                    firetouchinterest(hrp, fruit, 1)
+                end)
+            end
+        end
+    end
+end)
+
+-- Loop Toko & Jual NPC (Setiap 0.6 Detik)
+task.spawn(function()
+    while task.wait(0.6) do
+        -- A. AUTO BUY SEED (Membaca Tombol "Umum" / "Rarity" Toko Benih)
         if _G.AutoBuySeed and _G.SelectedSeed then
             pcall(function()
                 clickGuiButton("Biji-bijian")
                 task.wait(0.2)
                 for _, gui in pairs(Player.PlayerGui:GetDescendants()) do
-                    if gui:IsA("TextButton") and string.find(string.lower(gui.Text), string.lower(_G.SelectedSeed)) then
+                    if gui:IsA("TextLabel") and string.find(string.lower(gui.Text), string.lower(_G.SelectedSeed)) then
                         local parent = gui.Parent
                         if parent then
+                            -- Klik semua tombol di baris benih tersebut (Bypass teks "Umum")
                             for _, child in pairs(parent:GetDescendants()) do
-                                if child:IsA("TextButton") and (string.find(string.lower(child.Text), "beli") or string.find(string.lower(child.Text), "buy") or string.find(string.lower(child.Text), "¢")) then
-                                    firesignal(child.MouseButton1Click)
+                                if child:IsA("TextButton") or child:IsA("ImageButton") then
+                                    clickButton(child)
                                 end
                             end
                         end
@@ -196,29 +251,32 @@ task.spawn(function()
             pcall(function()
                 for _, prompt in pairs(Workspace:GetDescendants()) do
                     if prompt:IsA("ProximityPrompt") and string.find(string.lower(prompt.Parent.Name), string.lower(_G.SelectedGear)) then
+                        prompt.MaxActivationDistance = 999999
+                        prompt.HoldDuration = 0
                         fireproximityprompt(prompt)
                     end
                 end
             end)
         end
 
-        -- C. AUTO SELL ALL (Sistem Baru Terintegrasi Dialog NPC dari Screenshot)
+        -- C. AUTO SELL ALL (Sistem Dialog NPC Jual Terintegrasi)
         if _G.AutoSellAll then
             pcall(function()
-                -- Cek apakah menu dialog "Jual Inventaris" sudah muncul di layar
+                -- 1. Cek apakah dialog "Jual" / "Inventaris" aktif di layar
                 local dialogAktif = false
                 for _, v in pairs(Player.PlayerGui:GetDescendants()) do
-                    if (v:IsA("TextButton") or v:IsA("TextLabel")) and string.find(string.lower(v.Text), "jual inventaris") then
+                    if (v:IsA("TextButton") or v:IsA("TextLabel")) and string.find(string.lower(v.Text), "jual") then
                         dialogAktif = true
                         break
                     end
                 end
 
                 if dialogAktif then
-                    -- Jika dialog aktif, langsung klik "Jual Inventaris!" secara instan
+                    -- 2. Jika aktif, langsung klik opsi Jual Inventaris secara instan
                     clickDialogueOption("jual inventaris")
+                    clickDialogueOption("jual ini")
                 else
-                    -- Jika dialog belum aktif, dekati dan pencet ProximityPrompt di toko/NPC "Jual"
+                    -- 3. Jika belum aktif, tembak ProximityPrompt dari NPC Jual terdekat
                     for _, prompt in pairs(Workspace:GetDescendants()) do
                         if prompt:IsA("ProximityPrompt") then
                             local name = string.lower(prompt.Parent.Name)
@@ -227,6 +285,8 @@ task.spawn(function()
                             
                             if string.find(name, "jual") or string.find(action, "jual") or string.find(objText, "jual") or
                                string.find(name, "sell") or string.find(action, "sell") or string.find(objText, "sell") then
+                                prompt.MaxActivationDistance = 999999
+                                prompt.HoldDuration = 0
                                 fireproximityprompt(prompt)
                             end
                         end
@@ -556,7 +616,7 @@ AddSection(farmPage, "🌾 Fitur Kebun")
 AddToggle(farmPage, "Auto Sapu Bersih Buah (Collect)", false, function(v) _G.AutoCollect = v end)
 AddToggle(farmPage, "Auto Tanam (Plant)", false, function(v) _G.AutoPlant = v end)
 AddToggle(farmPage, "Auto Panen (Harvest)", false, function(v) _G.AutoHarvest = v end)
-AddToggle(farmPage, "Auto Jual Semua (Dialogue Sell)", false, function(v) _G.AutoSellAll = v end)
+AddToggle(farmPage, "Auto Jual Semua (NPC Dialogue)", false, function(v) _G.AutoSellAll = v end)
 
 -- TAB 2: SHOP BUY
 local shopPage = CreateTab("Auto Belanja")
@@ -571,8 +631,16 @@ AddToggle(shopPage, "Aktifkan Auto Beli Alat", false, function(v) _G.AutoBuyGear
 -- TAB 3: SETTINGS
 local settingsPage = CreateTab("Pengaturan")
 AddSection(settingsPage, "⚡ Karakter")
-AddToggle(settingsPage, "Aktifkan Walkspeed", false, function(v) _G.WalkspeedToggle = v end)
-AddInput(settingsPage, "Kecepatan (Speed)", "50", function(v) _G.CustomSpeed = v end)
+AddToggle(settingsPage, "Aktifkan Walkspeed", false, function(v) 
+    _G.WalkspeedToggle = v 
+    if v then enableWalkspeed() else
+        pcall(function() Player.Character.Humanoid.WalkSpeed = 16 end)
+    end
+end)
+AddInput(settingsPage, "Kecepatan (Speed)", "50", function(v) 
+    _G.CustomSpeed = v 
+    if _G.WalkspeedToggle then enableWalkspeed() end
+end)
 AddToggle(settingsPage, "No Clip (Tembus Tembok)", false, function(v) _G.NoClipToggle = v end)
 
 -- =============================================================================
