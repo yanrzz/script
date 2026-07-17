@@ -1,5 +1,5 @@
 -- =============================================================================
--- SPEED HUB X v12.0 - ULTIMATE BYPASS EDITION (RADIUS FARM & MULTI-CLICK)
+-- SPEED HUB X v12.5 - FIX AUTO BUY SEEDS & GEAR EDITION
 -- =============================================================================
 
 -- 1. DATABASE ITEM
@@ -12,7 +12,7 @@ local FruitsList = {
 }
 
 local GearsList = {
-    "Sekop", "Penyiram Biasa", "Common Watering Can", "Common Sprinkler", "Uncommon Sprinkler", "Rare Sprinkler", 
+    "Sekop", "Shovel", "Penyiram Biasa", "Common Watering Can", "Common Sprinkler", "Uncommon Sprinkler", "Rare Sprinkler", 
     "Sign", "Trowel", "Speed Mushroom", "Jump Mushroom", "Supersize Mushroom", "Invisibility Mushroom", 
     "Shrink Mushroom", "Flashbang", "Gnome", "Megafon", "Basic Pot", "Legendary Sprinkler", "Super Sprinkler", "Super Watering Can"
 }
@@ -39,7 +39,7 @@ local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
 local GuiService = game:GetService("GuiService")
 
--- Helper: Deteksi Tanaman Terdekat Berdasarkan Jarak (Sangat Akurat, Tanpa Bug Plot)
+-- Helper: Deteksi Tanaman Terdekat Berdasarkan Jarak
 local function getNearbyPrompts()
     local prompts = {}
     local char = Player.Character
@@ -52,7 +52,7 @@ local function getNearbyPrompts()
             if parent and (parent:IsA("BasePart") or parent:IsA("Model")) then
                 local partPos = parent:GetPivot().Position
                 local dist = (myPos - partPos).Magnitude
-                if dist <= 120 then -- Radius 120 stud (Mencakup seluruh area kebunmu)
+                if dist <= 120 then
                     table.insert(prompts, obj)
                 end
             end
@@ -76,7 +76,7 @@ local function getDroppedFruits()
     return fruits
 end
 
--- Helper: Trigger Proximity Prompt Secara Paksa (Anti-Gagal Executor HP/PC)
+-- Helper: Trigger Proximity Prompt Secara Paksa (Bypass No-LOS)
 local function triggerPrompt(prompt)
     if not prompt or not prompt.Enabled then return end
     pcall(function()
@@ -85,7 +85,6 @@ local function triggerPrompt(prompt)
         if fireproximityprompt then
             fireproximityprompt(prompt)
         else
-            -- Fallback simulasi manual jika executor tidak punya fireproximityprompt
             task.spawn(function()
                 prompt:InputHoldBegin()
                 task.wait(prompt.HoldDuration + 0.05)
@@ -95,29 +94,66 @@ local function triggerPrompt(prompt)
     end)
 end
 
--- Helper: Multi-Click Simulator untuk GUI Game (Mobile Bypass)
+-- Helper: Super Multi-Click Simulator untuk Semua Jenis Tombol GUI (TextButton / ImageButton)
 local function pressButton(btn)
     if not btn or not btn.Visible then return end
     pcall(function() GuiService.SelectedObject = btn end)
     pcall(function() btn:Activate() end)
-    pcall(function() firesignal(btn.MouseButton1Click) end)
-    pcall(function() firesignal(btn.MouseButton1Down) end)
-    pcall(function() firesignal(btn.MouseButton1Up) end)
-    pcall(function() firesignal(btn.TouchTap) end)
-    pcall(function() firesignal(btn.Activated) end)
+    pcall(function()
+        local events = {"MouseButton1Click", "MouseButton1Down", "MouseButton1Up", "TouchTap", "Activated"}
+        for _, event in ipairs(events) do
+            firesignal(btn[event])
+        end
+    end)
 end
 
--- Helper: Buka Menu Atas Game Otomatis
-local function openTopMenu(menuName)
+-- Helper: Buka Menu GUI Secara Agresif (Bisa mendeteksi teks di dalam ImageButton)
+local function openShopMenu(keyword)
+    local lowerKey = string.lower(keyword)
     for _, v in pairs(Player.PlayerGui:GetDescendants()) do
-        if v:IsA("TextButton") and string.find(string.lower(v.Text), string.lower(menuName)) then
-            if v.AbsoluteSize.Y > 20 and v.AbsoluteSize.X > 50 then
-                pressButton(v)
-                return true
+        if v:IsA("GuiButton") and v.Visible then
+            local text = ""
+            if v:IsA("TextButton") then
+                text = string.lower(v.Text)
+            end
+            for _, child in pairs(v:GetChildren()) do
+                if child:IsA("TextLabel") then
+                    text = text .. " " .. string.lower(child.Text)
+                end
+            end
+            local name = string.lower(v.Name)
+            
+            if string.find(text, lowerKey) or string.find(name, lowerKey) then
+                if v.AbsoluteSize.Y < 120 and v.AbsoluteSize.X < 120 then -- Memastikan ini tombol navigasi, bukan frame besar
+                    pressButton(v)
+                    return true
+                end
             end
         end
     end
     return false
+end
+
+-- Helper: Cari Proximity Prompt Peralatan dengan Fuzzy Match (Mencari di dalam Model & Text Prompt)
+local function findGearPrompt(gearName)
+    local lowerGear = string.lower(gearName)
+    for _, obj in pairs(Workspace:GetDescendants()) do
+        if obj:IsA("ProximityPrompt") then
+            local parent = obj.Parent
+            local parentName = parent and string.lower(parent.Name) or ""
+            local grandParentName = (parent and parent.Parent) and string.lower(parent.Parent.Name) or ""
+            local objText = string.lower(obj.ObjectText)
+            local actText = string.lower(obj.ActionText)
+            
+            if string.find(parentName, lowerGear) or 
+               string.find(grandParentName, lowerGear) or 
+               string.find(objText, lowerGear) or 
+               string.find(actText, lowerGear) then
+                return obj
+            end
+        end
+    end
+    return nil
 end
 
 -- =============================================================================
@@ -183,8 +219,8 @@ task.spawn(function()
                 
                 if (_G.AutoHarvest and isHarvest) or (_G.AutoPlant and isPlant) then
                     local targetPos = prompt.Parent:GetPivot().Position
-                    hrp.CFrame = CFrame.new(targetPos + Vector3.new(0, 1.5, 0)) -- Teleportasi presisi di atas objek
-                    task.wait(0.1) -- Sinkronisasi posisi di server
+                    hrp.CFrame = CFrame.new(targetPos + Vector3.new(0, 1.5, 0))
+                    task.wait(0.1)
                     triggerPrompt(prompt)
                     task.wait(0.05)
                 end
@@ -210,12 +246,12 @@ end)
 -- Loop Toko & Jual NPC (Setiap 0.8 Detik)
 task.spawn(function()
     while task.wait(0.8) do
-        -- A. AUTO BUY SEEDS (Multi-Select & Auto Open)
+        -- A. AUTO BUY SEEDS (Sistem Penjelajahan GUI Baru yang Jauh Lebih Akurat)
         if _G.AutoBuySeed then
             pcall(function()
-                openTopMenu("biji")
-                openTopMenu("seed")
-                task.wait(0.2)
+                openShopMenu("biji")
+                openShopMenu("seed")
+                task.wait(0.3)
 
                 local targetSeeds = {}
                 if _G.BuyAllSeeds then
@@ -238,6 +274,7 @@ task.spawn(function()
 
                 for _, seedName in ipairs(targetSeeds) do
                     local targetRow = nil
+                    -- Cari baris/row item yang memuat nama bibit ini
                     for _, gui in pairs(Player.PlayerGui:GetDescendants()) do
                         if gui:IsA("TextLabel") and gui.Visible and string.find(string.lower(gui.Text), string.lower(seedName)) then
                             targetRow = gui.Parent
@@ -246,44 +283,32 @@ task.spawn(function()
                     end
 
                     if targetRow then
-                        local rarityBtn = nil
+                        -- Tekan tombol beli/pilih di baris tersebut
                         for _, child in pairs(targetRow:GetDescendants()) do
-                            if child:IsA("TextButton") and child.Visible then
-                                local t = string.lower(child.Text)
-                                if string.find(t, "umum") or string.find(t, "langka") or 
-                                   string.find(t, "sangat") or string.find(t, "common") or 
-                                   string.find(t, "rare") or string.find(t, "epic") or 
-                                   string.find(t, "legendary") then
-                                    rarityBtn = child
-                                    break
-                                end
-                            end
-                        end
-
-                        if rarityBtn then
-                            pressButton(rarityBtn)
-                            task.wait(0.2)
-
-                            -- Klik Tombol Konfirmasi Hijau
-                            for _, v in pairs(Player.PlayerGui:GetDescendants()) do
-                                if v:IsA("TextButton") and v.Visible and v.AbsoluteSize.X > 0 then
-                                    local bg = v.BackgroundColor3
-                                    local isGreen = (bg.G > bg.R and bg.G > bg.B and bg.G > 0.4)
-                                    local hasCoin = string.find(v.Text, "¢") or string.find(v.Name, "¢")
-                                    
-                                    if not hasCoin then
-                                        for _, c in pairs(v:GetChildren()) do
-                                            if c:IsA("TextLabel") and string.find(c.Text, "¢") then
-                                                hasCoin = true
-                                                break
+                            if child:IsA("GuiButton") and child.Visible then
+                                pressButton(child)
+                                task.wait(0.2)
+                                
+                                -- Konfirmasi Pembelian di Pop-up Global
+                                for _, confirmBtn in pairs(Player.PlayerGui:GetDescendants()) do
+                                    if confirmBtn:IsA("GuiButton") and confirmBtn.Visible then
+                                        local btnText = confirmBtn:IsA("TextButton") and string.lower(confirmBtn.Text) or ""
+                                        for _, textLabel in pairs(confirmBtn:GetChildren()) do
+                                            if textLabel:IsA("TextLabel") then
+                                                btnText = btnText .. " " .. string.lower(textLabel.Text)
                                             end
                                         end
-                                    end
-
-                                    if isGreen or hasCoin or string.find(string.lower(v.Text), "beli") or string.find(string.lower(v.Text), "buy") then
-                                        pressButton(v)
-                                        task.wait(0.1)
-                                        break
+                                        
+                                        local bg = confirmBtn.BackgroundColor3
+                                        local isGreen = (bg.G > bg.R and bg.G > bg.B and bg.G > 0.4)
+                                        local isConfirmWord = string.find(btnText, "beli") or string.find(btnText, "buy") or 
+                                                              string.find(btnText, "yes") or string.find(btnText, "confirm") or 
+                                                              string.find(btnText, "ya") or string.find(btnText, "¢")
+                                        
+                                        if isGreen or isConfirmWord then
+                                            pressButton(confirmBtn)
+                                            task.wait(0.1)
+                                        end
                                     end
                                 end
                             end
@@ -293,17 +318,17 @@ task.spawn(function()
             end)
         end
 
-        -- B. AUTO BUY GEAR
+        -- B. AUTO BUY GEAR (Menggunakan Sistem Fuzzy Match & Teleportasi Aman)
         if _G.AutoBuyGear and _G.SelectedGear then
             pcall(function()
-                for _, prompt in pairs(Workspace:GetDescendants()) do
-                    if prompt:IsA("ProximityPrompt") and string.find(string.lower(prompt.Parent.Name), string.lower(_G.SelectedGear)) then
-                        local char = Player.Character
-                        if char and char:FindFirstChild("HumanoidRootPart") then
-                            char.HumanoidRootPart.CFrame = prompt.Parent:GetPivot()
-                            task.wait(0.15)
-                            triggerPrompt(prompt)
-                        end
+                local prompt = findGearPrompt(_G.SelectedGear)
+                if prompt then
+                    local char = Player.Character
+                    if char and char:FindFirstChild("HumanoidRootPart") then
+                        -- Berdiri sedikit di atas/depan rak alat agar tidak tersangkut di dalam meja toko
+                        char.HumanoidRootPart.CFrame = prompt.Parent:GetPivot() * CFrame.new(0, 1.5, 1)
+                        task.wait(0.25)
+                        triggerPrompt(prompt)
                     end
                 end
             end)
@@ -312,13 +337,18 @@ task.spawn(function()
         -- C. AUTO SELL ALL
         if _G.AutoSellAll then
             pcall(function()
-                openTopMenu("jual")
-                openTopMenu("sell")
-                task.wait(0.2)
+                openShopMenu("jual")
+                openShopMenu("sell")
+                task.wait(0.3)
                 
                 for _, v in pairs(Player.PlayerGui:GetDescendants()) do
-                    if v:IsA("TextButton") and v.Visible then
-                        local t = string.lower(v.Text)
+                    if v:IsA("GuiButton") and v.Visible then
+                        local t = ""
+                        if v:IsA("TextButton") then t = string.lower(v.Text) end
+                        for _, child in pairs(v:GetChildren()) do
+                            if child:IsA("TextLabel") then t = t .. " " .. string.lower(child.Text) end
+                        end
+                        
                         if string.find(t, "jual inventaris") or string.find(t, "jual semua") or 
                            string.find(t, "sell inventory") or string.find(t, "sell all") or
                            string.find(t, "jual ini") or string.find(t, "sell this") then
