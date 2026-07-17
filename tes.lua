@@ -1,5 +1,5 @@
 -- =============================================================================
--- SPEED HUB X v16.0 - ABSOLUTE GUILD VOID & INVISIBLE UI BYPASS EDITION
+-- SPEED HUB X v17.0 - ULTIMATE ANTI-GUILD & SCREEN-BOUNDARY LOCK
 -- =============================================================================
 
 -- 1. DATABASE ITEM
@@ -40,10 +40,39 @@ local RunService = game:GetService("RunService")
 local GuiService = game:GetService("GuiService")
 
 -- =============================================================================
--- PENYARINGAN UI SUPER KETAT (ANTI-GAIB & ANTI-GUILD)
+-- PENYARINGAN UI TINGKAT TINGGI (ANTI-GUILD & BOUNDARY DETECTOR)
 -- =============================================================================
 
--- Cek apakah UI benar-benar tampil di layar secara nyata (Bypass bug menu tertutup tapi .Visible = true)
+-- Cek apakah UI benar-benar berada di dalam layar (Mengatasi menu yang digeser keluar layar)
+local function isOnScreen(gui)
+    if not gui:IsA("GuiObject") then return true end
+    local pos = gui.AbsolutePosition
+    local size = gui.AbsoluteSize
+    if size.X <= 1 or size.Y <= 1 then return false end
+    
+    local camera = Workspace.CurrentCamera
+    if camera then
+        local viewport = camera.ViewportSize
+        if pos.X + size.X < 0 or pos.Y + size.Y < 0 or pos.X > viewport.X or pos.Y > viewport.Y then
+            return false
+        end
+    end
+    return true
+end
+
+-- Cek transparansi nyata (Mengatasi menu yang di-fadeout via CanvasGroup)
+local function getActualTransparency(gui)
+    local current = gui
+    while current do
+        if current:IsA("CanvasGroup") and current.GroupTransparency >= 0.9 then
+            return 1
+        end
+        current = current.Parent
+    end
+    return 0
+end
+
+-- Cek visibilitas dasar
 local function isFullyVisible(gui)
     if not gui then return false end
     if not gui.Visible then return false end
@@ -61,125 +90,102 @@ local function isFullyVisible(gui)
     return true
 end
 
--- Filter Blacklist Total: Jika ada bau-bau Guild/Clan/Slot/Member, langsung REJECT!
+-- Blacklist Kata Kunci Terkait Guild Secara Menyeluruh
+local GuildBlacklist = {
+    "guild", "clan", "member", "slot", "crew", "grup", "group", 
+    "squad", "alliance", "faction", "union", "association", "club", "family"
+}
+
 local function isGuildRelated(obj)
     if not obj then return false end
     local current = obj
     while current and current ~= Player.PlayerGui do
         local name = string.lower(current.Name)
-        if string.find(name, "guild") or string.find(name, "clan") or 
-           string.find(name, "member") or string.find(name, "slot") or 
-           string.find(name, "crew") or string.find(name, "grup") or
-           string.find(name, "group") then
-            return true
+        for _, word in ipairs(GuildBlacklist) do
+            if string.find(name, word) then return true end
         end
         
-        -- Cek teks jika objek ini adalah TextLabel atau TextButton
         if current:IsA("TextLabel") or current:IsA("TextButton") then
             local text = string.lower(current.Text)
-            if string.find(text, "guild") or string.find(text, "clan") or 
-               string.find(text, "member") or string.find(text, "slot") or 
-               string.find(text, "crew") or string.find(text, "grup") or
-               string.find(text, "group") then
-                return true
+            for _, word in ipairs(GuildBlacklist) do
+                if string.find(text, word) then return true end
             end
         end
         
-        -- Cek anak-anaknya untuk proteksi ekstra ganda
         for _, child in pairs(current:GetChildren()) do
             if child:IsA("TextLabel") or child:IsA("TextButton") then
                 local text = string.lower(child.Text)
-                if string.find(text, "guild") or string.find(text, "clan") or 
-                   string.find(text, "member") or string.find(text, "slot") or 
-                   string.find(text, "crew") or string.find(text, "grup") or
-                   string.find(text, "group") then
-                    return true
+                for _, word in ipairs(GuildBlacklist) do
+                    if string.find(text, word) then return true end
                 end
             end
         end
-        
         current = current.Parent
     end
     return false
 end
 
--- Helper: Deteksi Tanaman Terdekat Berdasarkan Jarak
-local function getNearbyPrompts()
-    local prompts = {}
-    local char = Player.Character
-    if not char or not char:FindFirstChild("HumanoidRootPart") then return prompts end
-    local myPos = char.HumanoidRootPart.Position
-    
-    for _, obj in pairs(Workspace:GetDescendants()) do
-        if obj:IsA("ProximityPrompt") then
-            local parent = obj.Parent
-            if parent and (parent:IsA("BasePart") or parent:IsA("Model")) then
-                local partPos = parent:GetPivot().Position
-                local dist = (myPos - partPos).Magnitude
-                if dist <= 120 then
-                    table.insert(prompts, obj)
+-- =============================================================================
+-- DETEKTOR KHUSUS & VALIDASI TOKO BENIH (100% BEBAS SALAH SASARAN)
+-- =============================================================================
+
+-- Verifikasi Toko Benih yang Valid (Harus Berisi Minimal 2 Nama Buah dari FruitsList)
+local function getRealSeedShopFrame()
+    for _, v in pairs(Player.PlayerGui:GetDescendants()) do
+        if (v:IsA("Frame") or v:IsA("ImageLabel") or v:IsA("CanvasGroup") or v:IsA("ScrollingFrame")) 
+            and isFullyVisible(v) and isOnScreen(v) and getActualTransparency(v) < 0.5 and not isGuildRelated(v) then
+            
+            local matchCount = 0
+            local checkedSeeds = {}
+            for _, child in pairs(v:GetDescendants()) do
+                if child:IsA("TextLabel") and isFullyVisible(child) and isOnScreen(child) then
+                    local text = string.lower(child.Text)
+                    for _, fruit in ipairs(FruitsList) do
+                        local fruitLower = string.lower(fruit)
+                        if string.find(text, fruitLower) and not checkedSeeds[fruitLower] then
+                            checkedSeeds[fruitLower] = true
+                            matchCount = matchCount + 1
+                            break
+                        end
+                    end
+                end
+                if matchCount >= 2 then
+                    return v -- Valid, ini adalah Toko Benih asli!
                 end
             end
         end
     end
-    return prompts
+    return nil
 end
 
--- Helper: Cari Buah Jatuh di Tanah
-local function getDroppedFruits()
-    local fruits = {}
-    for _, obj in pairs(Workspace:GetChildren()) do
-        if obj:IsA("BasePart") then
-            for _, name in pairs(FruitsList) do
-                if string.find(string.lower(obj.Name), string.lower(name)) then
-                    table.insert(fruits, obj)
+-- Verifikasi Frame Jual yang Valid
+local function getRealSellFrame()
+    for _, v in pairs(Player.PlayerGui:GetDescendants()) do
+        if (v:IsA("Frame") or v:IsA("ImageLabel") or v:IsA("CanvasGroup")) 
+            and isFullyVisible(v) and isOnScreen(v) and getActualTransparency(v) < 0.5 and not isGuildRelated(v) then
+            
+            if v.AbsoluteSize.X > 150 and v.AbsoluteSize.Y > 150 then
+                for _, child in pairs(v:GetChildren()) do
+                    if child:IsA("TextLabel") and isFullyVisible(child) then
+                        local txt = string.lower(child.Text)
+                        if string.find(txt, "jual") or string.find(txt, "sell") then
+                            if not child.Parent:IsA("GuiButton") then
+                                return v
+                            end
+                        end
+                    end
                 end
             end
         end
     end
-    return fruits
+    return nil
 end
 
--- Helper: Trigger Proximity Prompt Secara Paksa (Bypass No-LOS)
-local function triggerPrompt(prompt)
-    if not prompt or not prompt.Enabled then return end
-    pcall(function()
-        prompt.RequiresLineOfSight = false
-        prompt.MaxActivationDistance = 999999
-        if fireproximityprompt then
-            fireproximityprompt(prompt)
-        else
-            task.spawn(function()
-                prompt:InputHoldBegin()
-                task.wait(prompt.HoldDuration + 0.05)
-                prompt:InputHoldEnd()
-            end)
-        end
-    end)
-end
-
--- Helper: Super Multi-Click Simulator untuk GUI
-local function pressButton(btn)
-    if not btn or not isFullyVisible(btn) or isGuildRelated(btn) then return end
-    pcall(function() GuiService.SelectedObject = btn end)
-    pcall(function() btn:Activate() end)
-    pcall(function()
-        local events = {"MouseButton1Click", "MouseButton1Down", "MouseButton1Up", "TouchTap", "Activated"}
-        for _, event in ipairs(events) do
-            firesignal(btn[event])
-        end
-    end)
-end
-
--- =============================================================================
--- DETEKSI FRAME GAME UTAMA (KATA KUNCI SPESIFIK & METODE ANTI-GUILD)
--- =============================================================================
-
--- Dapatkan Tombol Menu Navigasi Atas (Pilih Bijian, Jual)
+-- Deteksi Tombol Navigasi Atas
 local function getTopNavButton(keyword)
     local lowerKey = string.lower(keyword)
     for _, v in pairs(Player.PlayerGui:GetDescendants()) do
-        if v:IsA("GuiButton") and isFullyVisible(v) and not isGuildRelated(v) then
+        if v:IsA("GuiButton") and isFullyVisible(v) and isOnScreen(v) and not isGuildRelated(v) then
             local text = ""
             if v:IsA("TextButton") then text = string.lower(v.Text) end
             for _, child in pairs(v:GetChildren()) do
@@ -193,64 +199,13 @@ local function getTopNavButton(keyword)
     return nil
 end
 
--- Dapatkan Frame Utama Toko Benih (Sangat Selektif!)
-local function getSeedShopFrame()
-    for _, v in pairs(Player.PlayerGui:GetDescendants()) do
-        if (v:IsA("Frame") or v:IsA("ImageLabel") or v:IsA("CanvasGroup")) and isFullyVisible(v) and not isGuildRelated(v) then
-            for _, child in pairs(v:GetChildren()) do
-                if child:IsA("TextLabel") and child.Visible then
-                    local txt = string.lower(child.Text)
-                    -- Harus mengandung kata kunci benih/seed, dan MUTLAK bebas dari Guild/Group/Clan
-                    local isSeedShop = string.find(txt, "benih") or string.find(txt, "seed") or string.find(txt, "biji")
-                    if isSeedShop and not string.find(txt, "guild") and not string.find(txt, "clan") and not string.find(txt, "group") then
-                        return v
-                    end
-                end
-            end
-        end
-    end
-    return nil
-end
-
--- Dapatkan Frame Utama Jual
-local function getSellFrame()
-    for _, v in pairs(Player.PlayerGui:GetDescendants()) do
-        if (v:IsA("Frame") or v:IsA("ImageLabel") or v:IsA("CanvasGroup")) and isFullyVisible(v) and not isGuildRelated(v) then
-            if v.AbsoluteSize.X > 200 and v.AbsoluteSize.Y > 200 then
-                for _, child in pairs(v:GetChildren()) do
-                    if child:IsA("TextLabel") and (string.find(string.lower(child.Text), "jual") or string.find(string.lower(child.Text), "sell")) then
-                        if not child.Parent:IsA("GuiButton") then
-                            return v
-                        end
-                    end
-                end
-            end
-        end
-    end
-    return nil
-end
-
--- Deteksi Apakah Stok Benih Sedang Habis
-local function isOutOfStock(shopFrame)
-    if not shopFrame then return false end
-    for _, child in pairs(shopFrame:GetDescendants()) do
-        if child:IsA("TextLabel") or child:IsA("TextButton") then
-            local text = string.lower(child.Text)
-            if string.find(text, "tidak ada stok") or string.find(text, "out of stock") or string.find(text, "habis") or string.find(text, "no stock") then
-                return true
-            end
-        end
-    end
-    return false
-end
-
--- Dapatkan Tombol Beli Koin Hijau (Bebas Dari Ancaman Tombol Robux & Guild)
+-- Deteksi Koin/Coin Buy Button
 local function getCoinBuyButton(shopFrame)
     if not shopFrame then return nil end
     local candidates = {}
     
     for _, child in pairs(shopFrame:GetDescendants()) do
-        if child:IsA("GuiButton") and isFullyVisible(child) and not isGuildRelated(child) then
+        if child:IsA("GuiButton") and isFullyVisible(child) and isOnScreen(child) and not isGuildRelated(child) then
             local inScroll = child:FindFirstAncestorOfClass("ScrollingFrame")
             local cName = string.lower(child.Name)
             if not inScroll and cName ~= "close" and not string.find(cName, "refill") and not string.find(cName, "isi") then
@@ -295,14 +250,13 @@ local function getCoinBuyButton(shopFrame)
         table.sort(candidates, function(a, b) return a.AbsolutePosition.X < b.AbsolutePosition.X end)
         return candidates[1]
     end
-    
     return nil
 end
 
--- Deteksi Dialog Konfirmasi Pembelian yang Sah & Aman
+-- Deteksi Dialog Konfirmasi Pembelian
 local function getConfirmationFrame()
     for _, v in pairs(Player.PlayerGui:GetDescendants()) do
-        if (v:IsA("Frame") or v:IsA("ImageLabel") or v:IsA("CanvasGroup")) and isFullyVisible(v) and not isGuildRelated(v) then
+        if (v:IsA("Frame") or v:IsA("ImageLabel") or v:IsA("CanvasGroup")) and isFullyVisible(v) and isOnScreen(v) and not isGuildRelated(v) then
             local name = string.lower(v.Name)
             local isMainShopOrSell = string.find(name, "seed") or string.find(name, "toko") or 
                                      string.find(name, "shop") or string.find(name, "benih") or
@@ -330,7 +284,89 @@ local function getConfirmationFrame()
     return nil
 end
 
--- Helper: Cari Proximity Prompt Peralatan
+-- Helper: Trigger Proximity Prompt
+local function triggerPrompt(prompt)
+    if not prompt or not prompt.Enabled then return end
+    pcall(function()
+        prompt.RequiresLineOfSight = false
+        prompt.MaxActivationDistance = 999999
+        if fireproximityprompt then
+            fireproximityprompt(prompt)
+        else
+            task.spawn(function()
+                prompt:InputHoldBegin()
+                task.wait(prompt.HoldDuration + 0.05)
+                prompt:InputHoldEnd()
+            end)
+        end
+    end)
+end
+
+-- Helper: Click Simulator
+local function pressButton(btn)
+    if not btn or not isFullyVisible(btn) or not isOnScreen(btn) or isGuildRelated(btn) then return end
+    pcall(function() GuiService.SelectedObject = btn end)
+    pcall(function() btn:Activate() end)
+    pcall(function()
+        local events = {"MouseButton1Click", "MouseButton1Down", "MouseButton1Up", "TouchTap", "Activated"}
+        for _, event in ipairs(events) do
+            firesignal(btn[event])
+        end
+    end)
+end
+
+-- Deteksi Stok Habis
+local function isOutOfStock(shopFrame)
+    if not shopFrame then return false end
+    for _, child in pairs(shopFrame:GetDescendants()) do
+        if child:IsA("TextLabel") or child:IsA("TextButton") then
+            local text = string.lower(child.Text)
+            if string.find(text, "tidak ada stok") or string.find(text, "out of stock") or string.find(text, "habis") or string.find(text, "no stock") then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+-- Dapatkan Prompts Terdekat
+local function getNearbyPrompts()
+    local prompts = {}
+    local char = Player.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return prompts end
+    local myPos = char.HumanoidRootPart.Position
+    
+    for _, obj in pairs(Workspace:GetDescendants()) do
+        if obj:IsA("ProximityPrompt") then
+            local parent = obj.Parent
+            if parent and (parent:IsA("BasePart") or parent:IsA("Model")) then
+                local partPos = parent:GetPivot().Position
+                local dist = (myPos - partPos).Magnitude
+                if dist <= 120 then
+                    table.insert(prompts, obj)
+                end
+            end
+        end
+    end
+    return prompts
+end
+
+-- Dapatkan Buah Jatuh
+local function getDroppedFruits()
+    local fruits = {}
+    for _, obj in pairs(Workspace:GetChildren()) do
+        if obj:IsA("BasePart") then
+            for _, name in pairs(FruitsList) do
+                if string.find(string.lower(obj.Name), string.lower(name)) then
+                    table.insert(fruits, obj)
+                end
+            end
+        end
+    end
+    return fruits
+end
+
+-- Cari Proximity Prompt Peralatan
 local function findGearPrompt(gearName)
     local lowerGear = string.lower(gearName)
     for _, obj in pairs(Workspace:GetDescendants()) do
@@ -353,7 +389,7 @@ local function findGearPrompt(gearName)
 end
 
 -- =============================================================================
--- Walkspeed & No-Clip Bypass
+-- WALK SPEED & NO CLIP BYPASS
 -- =============================================================================
 local speedConnection
 local function enableWalkspeed()
@@ -387,17 +423,16 @@ RunService.Stepped:Connect(function()
 end)
 
 -- =============================================================================
--- LOOP AUTOMATION UTAMA (SPEED HUB X)
+-- LOOP UTAMA AUTOMATION
 -- =============================================================================
 
--- Loop Panen, Tanam, Sapu Bersih (Radius-Based)
+-- Loop Panen, Tanam, Collect
 task.spawn(function()
     while task.wait(0.15) do
         local char = Player.Character
         if not char or not char:FindFirstChild("HumanoidRootPart") then continue end
         local hrp = char.HumanoidRootPart
         
-        -- A. AUTO HARVEST & AUTO PLANT
         if _G.AutoHarvest or _G.AutoPlant then
             local prompts = getNearbyPrompts()
             for _, prompt in ipairs(prompts) do
@@ -422,7 +457,6 @@ task.spawn(function()
             end
         end
 
-        -- B. AUTO COLLECT FRUITS
         if _G.AutoCollect then
             local fruits = getDroppedFruits()
             for _, fruit in ipairs(fruits) do
@@ -438,20 +472,18 @@ task.spawn(function()
     end
 end)
 
--- Loop Auto Belanja & Auto Jual (Setiap 0.8 Detik)
+-- Loop Belanja & Jual Otomatis (Setiap 0.8 Detik)
 task.spawn(function()
     while task.wait(0.8) do
-        -- A. AUTO BUY SEEDS (STRICTLY SECURED)
         if _G.AutoBuySeed then
             pcall(function()
-                local seedShopFrame = getSeedShopFrame()
-                -- Hanya cari tombol yang benar-benar bernilai herba/biji/tanaman
+                local seedShopFrame = getRealSeedShopFrame()
                 if not seedShopFrame then
                     local openBtn = getTopNavButton("benih") or getTopNavButton("biji") or getTopNavButton("seed")
                     if openBtn then
                         pressButton(openBtn)
-                        task.wait(0.3)
-                        seedShopFrame = getSeedShopFrame()
+                        task.wait(0.4)
+                        seedShopFrame = getRealSeedShopFrame()
                     end
                 end
 
@@ -459,7 +491,7 @@ task.spawn(function()
                     local targetSeeds = {}
                     if _G.BuyAllSeeds then
                         for _, gui in pairs(seedShopFrame:GetDescendants()) do
-                            if gui:IsA("TextLabel") and isFullyVisible(gui) and not isGuildRelated(gui) then
+                            if gui:IsA("TextLabel") and isFullyVisible(gui) and isOnScreen(gui) and not isGuildRelated(gui) then
                                 for _, seed in pairs(FruitsList) do
                                     if string.find(string.lower(gui.Text), string.lower(seed)) then
                                         if not table.find(targetSeeds, seed) then
@@ -478,8 +510,8 @@ task.spawn(function()
                     for _, seedName in ipairs(targetSeeds) do
                         local targetRow = nil
                         for _, gui in pairs(seedShopFrame:GetDescendants()) do
-                            if gui:IsA("TextLabel") and isFullyVisible(gui) and not isGuildRelated(gui) then
-                                if string.find(string.lower(gui.Text), string.lower(seedName)) then
+                            if gui:IsA("TextLabel") and isFullyVisible(gui) and isOnScreen(gui) and not isGuildRelated(gui) then
+                                if string.lower(gui.Text) == string.lower(seedName) or string.find(string.lower(gui.Text), string.lower(seedName)) then
                                     targetRow = gui.Parent
                                     break
                                 end
@@ -490,7 +522,7 @@ task.spawn(function()
                             local clickTarget = targetRow:IsA("GuiButton") and targetRow or nil
                             if not clickTarget then
                                 for _, child in pairs(targetRow:GetChildren()) do
-                                    if child:IsA("GuiButton") and isFullyVisible(child) and not isGuildRelated(child) then
+                                    if child:IsA("GuiButton") and isFullyVisible(child) and isOnScreen(child) and not isGuildRelated(child) then
                                         clickTarget = child
                                         break
                                     end
@@ -505,13 +537,12 @@ task.spawn(function()
                                 local buyBtn = getCoinBuyButton(seedShopFrame)
                                 if buyBtn then
                                     pressButton(buyBtn)
-                                    task.wait(0.3)
+                                    task.wait(0.35)
 
-                                    -- Konfirmasi Khusus Transaksi (Sangat Aman & Terlindungi)
                                     local confirmFrame = getConfirmationFrame()
                                     if confirmFrame then
                                         for _, confirmBtn in pairs(confirmFrame:GetDescendants()) do
-                                            if confirmBtn:IsA("GuiButton") and isFullyVisible(confirmBtn) and not isGuildRelated(confirmBtn) then
+                                            if confirmBtn:IsA("GuiButton") and isFullyVisible(confirmBtn) and isOnScreen(confirmBtn) and not isGuildRelated(confirmBtn) then
                                                 local confirmText = confirmBtn:IsA("TextButton") and string.lower(confirmBtn.Text) or ""
                                                 for _, textLabel in pairs(confirmBtn:GetChildren()) do
                                                     if textLabel:IsA("TextLabel") then
@@ -539,7 +570,6 @@ task.spawn(function()
             end)
         end
 
-        -- B. AUTO BUY GEAR
         if _G.AutoBuyGear and _G.SelectedGear then
             pcall(function()
                 local prompt = findGearPrompt(_G.SelectedGear)
@@ -554,23 +584,22 @@ task.spawn(function()
             end)
         end
 
-        -- C. AUTO SELL ALL
         if _G.AutoSellAll then
             pcall(function()
-                local sellFrame = getSellFrame()
+                local sellFrame = getRealSellFrame()
                 if not sellFrame then
                     local openBtn = getTopNavButton("jual") or getTopNavButton("sell")
                     if openBtn then
                         pressButton(openBtn)
-                        task.wait(0.3)
-                        sellFrame = getSellFrame()
+                        task.wait(0.4)
+                        sellFrame = getRealSellFrame()
                     end
                 end
                 
                 if sellFrame then
                     local sellAllBtn = nil
                     for _, child in pairs(sellFrame:GetDescendants()) do
-                        if child:IsA("GuiButton") and isFullyVisible(child) and not isGuildRelated(child) then
+                        if child:IsA("GuiButton") and isFullyVisible(child) and isOnScreen(child) and not isGuildRelated(child) then
                             local text = ""
                             if child:IsA("TextButton") then text = string.lower(child.Text) end
                             for _, c in pairs(child:GetChildren()) do
@@ -1055,7 +1084,7 @@ local function AddDropdown(parent, text, options, cb)
 end
 
 -- =============================================================================
--- PENYUSUNAN PAGE TAB
+-- PENYUSUNAN TAB HALAMAN SPEED HUB X
 -- =============================================================================
 
 -- TAB 1: AUTO FARM
@@ -1118,7 +1147,7 @@ promptsLabel.Parent = debugPage
 local executorLabel = Instance.new("TextLabel")
 executorLabel.Size = UDim2.new(1, -10, 0, 20)
 executorLabel.BackgroundTransparency = 1
-executorLabel.Text = "  Mode Eksekusi: Safe-Sandbox"
+executorLabel.Text = "  Mode Eksekusi: Safe-Sandbox v17.0"
 executorLabel.TextColor3 = Color3.fromRGB(150, 255, 150)
 executorLabel.Font = Enum.Font.SourceSans
 executorLabel.TextSize = 11
