@@ -1,5 +1,5 @@
 -- =============================================================================
--- SPEED HUB X v14.0 - PRECISION GREEN COIN BUTTON & FIX AUTO SELL EDITION
+-- SPEED HUB X v15.0 - ANTI-GUILD SPAM & BULLETPROOF CONFIRMATION EDITION
 -- =============================================================================
 
 -- 1. DATABASE ITEM
@@ -244,6 +244,62 @@ local function getCoinBuyButton(shopFrame)
     return nil
 end
 
+-- Deteksi Frame Dialog Konfirmasi Pembelian yang Sah & Terisolasi (ANTI-GUILD!)
+local function getConfirmationFrame()
+    for _, v in pairs(Player.PlayerGui:GetDescendants()) do
+        if (v:IsA("Frame") or v:IsA("ImageLabel") or v:IsA("CanvasGroup")) and v.Visible then
+            local name = string.lower(v.Name)
+            local isMainShopOrSell = string.find(name, "seed") or string.find(name, "toko") or 
+                                     string.find(name, "shop") or string.find(name, "benih") or
+                                     string.find(name, "jual") or string.find(name, "sell")
+            
+            -- Frame konfirmasi biasanya berukuran kecil-sedang (tidak selebar toko utama)
+            if not isMainShopOrSell and v.AbsoluteSize.X < 500 and v.AbsoluteSize.Y < 400 then
+                local hasConfirmQuestion = false
+                local isGuild = false
+                
+                -- Deteksi isi tulisan di dalam frame tersebut
+                for _, child in pairs(v:GetDescendants()) do
+                    if child:IsA("TextLabel") and child.Visible then
+                        local txt = string.lower(child.Text)
+                        -- Keyword pertanyaan transaksi
+                        if string.find(txt, "yakin") or string.find(txt, "sure") or 
+                           string.find(txt, "confirm") or string.find(txt, "beli") or 
+                           string.find(txt, "buy") or string.find(txt, "purchase") then
+                            hasConfirmQuestion = true
+                        end
+                        -- Filter kata kunci yang dilarang keras (Guild/Clan/Member/Slot)
+                        if string.find(txt, "guild") or string.find(txt, "clan") or 
+                           string.find(txt, "member") or string.find(txt, "slot") or 
+                           string.find(txt, "crew") or string.find(txt, "grup") then
+                            isGuild = true
+                        end
+                    end
+                end
+                
+                -- Periksa juga seluruh struktur parent-nya, jangan sampai berasal dari menu Guild
+                local temp = v
+                while temp and temp ~= Player.PlayerGui do
+                    local tName = string.lower(temp.Name)
+                    if string.find(tName, "guild") or string.find(tName, "clan") or 
+                       string.find(tName, "member") or string.find(tName, "slot") or 
+                       string.find(tName, "crew") or string.find(tName, "group") then
+                        isGuild = true
+                        break
+                    end
+                    temp = temp.Parent
+                end
+                
+                -- Jika lolos semua penyaringan, berarti ini adalah dialog konfirmasi belanja yang sah!
+                if hasConfirmQuestion and not isGuild then
+                    return v
+                end
+            end
+        end
+    end
+    return nil
+end
+
 -- Helper: Cari Proximity Prompt Peralatan
 local function findGearPrompt(gearName)
     local lowerGear = string.lower(gearName)
@@ -426,21 +482,11 @@ task.spawn(function()
                                     pressButton(buyBtn)
                                     task.wait(0.25)
 
-                                    -- Konfirmasi Pembelian (Hanya jika dialog konfirmasi non-Guild muncul)
-                                    for _, confirmBtn in pairs(Player.PlayerGui:GetDescendants()) do
-                                        if confirmBtn:IsA("GuiButton") and confirmBtn.Visible then
-                                            local isGuild = false
-                                            local parent = confirmBtn.Parent
-                                            while parent and parent ~= Player.PlayerGui do
-                                                local pName = string.lower(parent.Name)
-                                                if string.find(pName, "guild") or string.find(pName, "clan") or string.find(pName, "group") then
-                                                    isGuild = true
-                                                    break
-                                                end
-                                                parent = parent.Parent
-                                            end
-
-                                            if not isGuild then
+                                    -- 4. Konfirmasi Pembelian (Hanya mendeteksi Dialog Khusus Transaksi yang Valid!)
+                                    local confirmFrame = getConfirmationFrame()
+                                    if confirmFrame then
+                                        for _, confirmBtn in pairs(confirmFrame:GetDescendants()) do
+                                            if confirmBtn:IsA("GuiButton") and confirmBtn.Visible then
                                                 local confirmText = confirmBtn:IsA("TextButton") and string.lower(confirmBtn.Text) or ""
                                                 for _, textLabel in pairs(confirmBtn:GetChildren()) do
                                                     if textLabel:IsA("TextLabel") then
@@ -450,11 +496,12 @@ task.spawn(function()
                                                 
                                                 local isConfirmWord = string.find(confirmText, "beli") or string.find(confirmText, "buy") or 
                                                                       string.find(confirmText, "yes") or string.find(confirmText, "confirm") or 
-                                                                      string.find(confirmText, "ya")
+                                                                      string.find(confirmText, "ya") or string.find(confirmText, "setuju")
                                                 
                                                 if isConfirmWord then
                                                     pressButton(confirmBtn)
                                                     task.wait(0.1)
+                                                    break -- Keluar setelah berhasil menekan tombol ya
                                                 end
                                             end
                                         end
