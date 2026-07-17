@@ -1,5 +1,5 @@
 -- =============================================================================
--- SPEED HUB X v8.5 - GAG2 INDONESIAN EDITION (100% FIX ALL FEATURES WORK)
+-- SPEED HUB X v9.0 - GAG2 INDONESIAN EDITION (100% FIX CONFIRMATION BUTTON)
 -- =============================================================================
 
 -- 1. DATABASE ITEM (Mendukung Bahasa Indonesia & Inggris)
@@ -181,6 +181,7 @@ task.spawn(function()
             -- Bypass Jarak ProximityPrompt agar bisa diakses dari jauh
             for _, prompt in pairs(myGarden:GetDescendants()) do
                 if prompt:IsA("ProximityPrompt") then
+                    prompt.RequiresLineOfSight = false
                     prompt.MaxActivationDistance = 999999
                     prompt.HoldDuration = 0
                     
@@ -225,20 +226,60 @@ end)
 -- Loop Toko & Jual NPC (Setiap 0.6 Detik)
 task.spawn(function()
     while task.wait(0.6) do
-        -- A. AUTO BUY SEED (Membaca Tombol "Umum" / "Rarity" Toko Benih)
+        -- A. AUTO BUY SEED (Sistem Pembelian Ganda - Deteksi Tombol Hijau)
         if _G.AutoBuySeed and _G.SelectedSeed then
             pcall(function()
-                clickGuiButton("Biji-bijian")
-                task.wait(0.2)
+                local targetRow = nil
+                
+                -- 1. Cari baris/row benih yang sesuai (misal: "Wortel")
                 for _, gui in pairs(Player.PlayerGui:GetDescendants()) do
                     if gui:IsA("TextLabel") and string.find(string.lower(gui.Text), string.lower(_G.SelectedSeed)) then
-                        local parent = gui.Parent
-                        if parent then
-                            -- Klik semua tombol di baris benih tersebut (Bypass teks "Umum")
-                            for _, child in pairs(parent:GetDescendants()) do
-                                if child:IsA("TextButton") or child:IsA("ImageButton") then
-                                    clickButton(child)
+                        targetRow = gui.Parent
+                        break
+                    end
+                end
+
+                if targetRow then
+                    -- 2. Klik tombol kelangkaan terlebih dahulu ("Umum" / "Langka" / "Sangat Langka")
+                    for _, child in pairs(targetRow:GetDescendants()) do
+                        if child:IsA("TextButton") and (
+                            string.find(string.lower(child.Text), "umum") or 
+                            string.find(string.lower(child.Text), "langka") or 
+                            string.find(string.lower(child.Text), "common") or 
+                            string.find(string.lower(child.Text), "rare")
+                        ) then
+                            clickButton(child)
+                            break
+                        end
+                    end
+
+                    -- 3. Beri jeda kecil agar game memunculkan sub-menu tombol konfirmasi hijau
+                    task.wait(0.15)
+
+                    -- 4. Cari tombol konfirmasi berwarna HIJAU yang berisi teks "¢" (Simbol koin game)
+                    for _, v in pairs(Player.PlayerGui:GetDescendants()) do
+                        if v:IsA("TextButton") or v:IsA("ImageButton") then
+                            -- Deteksi warna hijau dominan (RGB)
+                            local bg = v.BackgroundColor3
+                            local isGreen = (bg.G > bg.R and bg.G > bg.B and bg.G > 0.4)
+                            
+                            -- Cek keberadaan simbol koin "¢" di dalam tombol tersebut
+                            local hasCoinSymbol = false
+                            if string.find(v.Name, "¢") or (v:IsA("TextButton") and string.find(v.Text, "¢")) then
+                                hasCoinSymbol = true
+                            else
+                                for _, c in pairs(v:GetChildren()) do
+                                    if c:IsA("TextLabel") and string.find(c.Text, "¢") then
+                                        hasCoinSymbol = true
+                                        break
+                                    end
                                 end
+                            end
+
+                            -- Jika valid, langsung klik tombol hijau konfirmasi tersebut!
+                            if isGreen and hasCoinSymbol then
+                                clickButton(v)
+                                break
                             end
                         end
                     end
@@ -251,6 +292,7 @@ task.spawn(function()
             pcall(function()
                 for _, prompt in pairs(Workspace:GetDescendants()) do
                     if prompt:IsA("ProximityPrompt") and string.find(string.lower(prompt.Parent.Name), string.lower(_G.SelectedGear)) then
+                        prompt.RequiresLineOfSight = false
                         prompt.MaxActivationDistance = 999999
                         prompt.HoldDuration = 0
                         fireproximityprompt(prompt)
@@ -262,7 +304,6 @@ task.spawn(function()
         -- C. AUTO SELL ALL (Sistem Dialog NPC Jual Terintegrasi)
         if _G.AutoSellAll then
             pcall(function()
-                -- 1. Cek apakah dialog "Jual" / "Inventaris" aktif di layar
                 local dialogAktif = false
                 for _, v in pairs(Player.PlayerGui:GetDescendants()) do
                     if (v:IsA("TextButton") or v:IsA("TextLabel")) and string.find(string.lower(v.Text), "jual") then
@@ -272,11 +313,10 @@ task.spawn(function()
                 end
 
                 if dialogAktif then
-                    -- 2. Jika aktif, langsung klik opsi Jual Inventaris secara instan
                     clickDialogueOption("jual inventaris")
                     clickDialogueOption("jual ini")
+                    clickDialogueOption("sell inventory")
                 else
-                    -- 3. Jika belum aktif, tembak ProximityPrompt dari NPC Jual terdekat
                     for _, prompt in pairs(Workspace:GetDescendants()) do
                         if prompt:IsA("ProximityPrompt") then
                             local name = string.lower(prompt.Parent.Name)
@@ -285,6 +325,7 @@ task.spawn(function()
                             
                             if string.find(name, "jual") or string.find(action, "jual") or string.find(objText, "jual") or
                                string.find(name, "sell") or string.find(action, "sell") or string.find(objText, "sell") then
+                                prompt.RequiresLineOfSight = false
                                 prompt.MaxActivationDistance = 999999
                                 prompt.HoldDuration = 0
                                 fireproximityprompt(prompt)
