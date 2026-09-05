@@ -1,57 +1,92 @@
 -- =============================================================================
--- SPEED HUB X - STEAL AN EGG (AUTO TAKE & AUTO FARM EGG)
+-- SPEED HUB X - STEAL AN EGG V3 (KHUSUS TELUR LAPANGAN / PUBLIC FIELD ONLY)
 -- =============================================================================
 
--- 1. SETTING & STATE
-_G.AutoTakeEgg = false
-_G.AutoSecretEgg = false
-_G.TakeDistance = 150 -- Radius jarak pencarian telur (m)
+_G.AutoStealLapangan = false
+_G.TweenSpeed = 70 -- Kecepatan pergerakan
 
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
-local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
 local LocalPlayer = Players.LocalPlayer
 
--- 2. HELPER FUNCTIONS
+-- Daftar folder/model milik Garden/Base player (UNTUK DIABAIKAN)
+local BlacklistedParents = {
+    "plot", "garden", "base", "claim", "player", "house", "kandang", "fence", "farm", "paddock"
+}
+
+-- Cek apakah telur berada di dalam garden/base pemain
+local function isInsidePlayerGarden(obj)
+    local current = obj
+    while current and current ~= Workspace do
+        local name = string.lower(current.Name)
+        for _, blacklisted in ipairs(BlacklistedParents) do
+            if string.find(name, blacklisted) then
+                return true -- Telur ada di dalam garden orang! (Diabaikan)
+            end
+        end
+        current = current.Parent
+    end
+    return false
+end
+
 local function getRoot()
     local char = LocalPlayer.Character
     return char and char:FindFirstChild("HumanoidRootPart")
 end
 
--- Deteksi Seluruh Telur di Workspace
-local function findEggs()
-    local eggList = {}
-    for _, obj in pairs(Workspace:GetDescendants()) do
-        if obj:IsA("Model") or obj:IsA("BasePart") then
-            local lowerName = string.lower(obj.Name)
-            if string.find(lowerName, "egg") or string.find(lowerName, "telur") then
-                -- Pastikan objek bukan bagian dari UI atau karakter pemain
-                if not obj:IsDescendantOf(LocalPlayer.Character) and not obj:FindFirstAncestorOfClass("ScreenGui") then
-                    table.insert(eggList, obj)
+-- Memindai HANYA telur liar yang ada di lapangan tengah / area publik
+local function getLapanganEggs()
+    local targets = {}
+    
+    for _, v in pairs(Workspace:GetDescendants()) do
+        if v:IsA("TouchTransmitter") or v:IsA("ProximityPrompt") or string.find(string.lower(v.Name), "egg") then
+            local parent = v:IsA("BasePart") and v or v.Parent
+            
+            if parent and not parent:IsDescendantOf(LocalPlayer.Character) then
+                -- FILTER 1: ABAIKAN jika telur berada di dalam Garden/Plot Player
+                if not isInsidePlayerGarden(parent) then
+                    local name = string.lower(parent.Name)
+                    -- FILTER 2: Pastikan itu objek telur/secret/event di lapangan
+                    if string.find(name, "egg") or string.find(name, "telur") or string.find(name, "secret") or string.find(name, "kraken") or v:IsA("TouchTransmitter") then
+                        table.insert(targets, parent)
+                    end
                 end
             end
         end
     end
-    return eggList
+    return targets
 end
 
--- Memicu Pengambilan Telur (Proximity Prompt / Touch)
-local function interactWithEgg(eggObj)
+-- Teleport Halus ke Lapangan
+local function moveToPos(targetCFrame)
     local root = getRoot()
-    if not root or not eggObj then return end
+    if not root then return end
     
-    local targetPos = eggObj:IsA("Model") and eggObj:GetPivot().Position or eggObj.Position
+    local dist = (root.Position - targetCFrame.Position).Magnitude
+    if dist < 12 then
+        root.CFrame = targetCFrame
+    else
+        local travelTime = dist / _G.TweenSpeed
+        local tweenInfo = TweenInfo.new(travelTime, Enum.EasingStyle.Linear)
+        local tween = TweenService:Create(root, tweenInfo, {CFrame = targetCFrame})
+        tween:Play()
+        tween.Completed:Wait()
+    end
+end
+
+-- Ambil Telur
+local function stealLapanganEgg(obj)
+    local root = getRoot()
+    if not root or not obj then return end
     
-    -- 1. Teleport Mikro ke Posisi Telur
-    root.CFrame = CFrame.new(targetPos + Vector3.new(0, 2, 0))
-    task.wait(0.05)
+    local targetCFrame = obj:IsA("Model") and obj:GetPivot() or obj.CFrame
+    moveToPos(targetCFrame + Vector3.new(0, 2, 0))
     
-    -- 2. Cek ProximityPrompt (jika sistem game memakai tombol tekan)
-    for _, prompt in pairs(eggObj:GetDescendants()) do
+    -- Prompt & Touch
+    for _, prompt in pairs(obj:GetDescendants()) do
         if prompt:IsA("ProximityPrompt") then
             pcall(function()
-                prompt.RequiresLineOfSight = false
-                prompt.MaxActivationDistance = 9999
                 if fireproximityprompt then
                     fireproximityprompt(prompt)
                 else
@@ -63,61 +98,41 @@ local function interactWithEgg(eggObj)
         end
     end
     
-    -- 3. Cek TouchInterest (jika sistem game memakai sentuhan)
-    if eggObj:IsA("BasePart") then
+    if obj:IsA("BasePart") then
         pcall(function()
-            firetouchinterest(root, eggObj, 0)
+            firetouchinterest(root, obj, 0)
             task.wait(0.01)
-            firetouchinterest(root, eggObj, 1)
+            firetouchinterest(root, obj, 1)
         end)
-    else
-        for _, part in pairs(eggObj:GetDescendants()) do
-            if part:IsA("BasePart") then
-                pcall(function()
-                    firetouchinterest(root, part, 0)
-                    task.wait(0.01)
-                    firetouchinterest(root, part, 1)
-                end)
-            end
-        end
     end
 end
 
--- 3. LOOP UTAMA AUTO TAKE EGG
+-- Loop Utama Khusus Lapangan
 task.spawn(function()
-    while task.wait(0.2) do
-        if _G.AutoTakeEgg then
+    while task.wait(0.3) do
+        if _G.AutoStealLapangan then
             pcall(function()
-                local root = getRoot()
-                if not root then return end
-                
-                local eggs = findEggs()
+                local eggs = getLapanganEggs()
                 for _, egg in ipairs(eggs) do
-                    if not _G.AutoTakeEgg then break end
-                    
-                    local pos = egg:IsA("Model") and egg:GetPivot().Position or egg.Position
-                    local dist = (root.Position - pos).Magnitude
-                    
-                    if dist <= _G.TakeDistance then
-                        interactWithEgg(egg)
-                        task.wait(0.15)
-                    end
+                    if not _G.AutoStealLapangan then break end
+                    stealLapanganEgg(egg)
+                    task.wait(0.1)
                 end
             end)
         end
     end
 end)
 
--- 4. GUI INTERFACE (SPEED HUB MINI)
+-- UI Kontrol Mini
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "StealEggHub"
+ScreenGui.Name = "StealEggLapanganUI"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = game:GetService("CoreGui") or LocalPlayer:WaitForChild("PlayerGui")
 
 local Main = Instance.new("Frame")
-Main.Size = UDim2.new(0, 220, 0, 160)
+Main.Size = UDim2.new(0, 210, 0, 110)
 Main.Position = UDim2.new(0.05, 0, 0.4, 0)
-Main.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+Main.BackgroundColor3 = Color3.fromRGB(20, 25, 30)
 Main.Active = true
 Main.Draggable = true
 Main.Parent = ScreenGui
@@ -125,39 +140,26 @@ Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 8)
 
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, 0, 0, 30)
-Title.Text = "Steal an Egg | Auto Hub"
-Title.TextColor3 = Color3.fromRGB(255, 200, 50)
+Title.Text = "Curi Telur Lapangan Only"
+Title.TextColor3 = Color3.fromRGB(0, 220, 255)
 Title.Font = Enum.Font.SourceSansBold
 Title.TextSize = 13
 Title.Parent = Main
 
-local function CreateToggle(text, pos, callback)
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0.9, 0, 0, 32)
-    btn.Position = pos
-    btn.AnchorPoint = Vector2.new(0.5, 0)
-    btn.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-    btn.Text = text .. ": OFF"
-    btn.TextColor3 = Color3.fromRGB(200, 200, 200)
-    btn.Font = Enum.Font.SourceSansBold
-    btn.TextSize = 12
-    btn.Parent = Main
-    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 5)
-    
-    local state = false
-    btn.MouseButton1Click:Connect(function()
-        state = not state
-        btn.Text = text .. ": " .. (state and "ON" or "OFF")
-        btn.BackgroundColor3 = state and Color3.fromRGB(40, 180, 80) or Color3.fromRGB(40, 40, 50)
-        btn.TextColor3 = state and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(200, 200, 200)
-        callback(state)
-    end)
-end
+local Btn = Instance.new("TextButton")
+Btn.Size = UDim2.new(0.85, 0, 0, 35)
+Btn.Position = UDim2.new(0.075, 0, 0, 45)
+Btn.BackgroundColor3 = Color3.fromRGB(40, 45, 55)
+Btn.Text = "Auto Lapangan: OFF"
+Btn.TextColor3 = Color3.fromRGB(200, 200, 200)
+Btn.Font = Enum.Font.SourceSansBold
+Btn.TextSize = 12
+Btn.Parent = Main
+Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 6)
 
-CreateToggle("Auto Take Egg", UDim2.new(0.5, 0, 0, 38), function(v)
-    _G.AutoTakeEgg = v
-end)
-
-CreateToggle("Auto Secret Egg TP", UDim2.new(0.5, 0, 0, 78), function(v)
-    _G.AutoSecretEgg = v
+Btn.MouseButton1Click:Connect(function()
+    _G.AutoStealLapangan = not _G.AutoStealLapangan
+    Btn.Text = "Auto Lapangan: " .. (_G.AutoStealLapangan and "ON" or "OFF")
+    Btn.BackgroundColor3 = _G.AutoStealLapangan and Color3.fromRGB(0, 180, 120) or Color3.fromRGB(40, 45, 55)
+    Btn.TextColor3 = _G.AutoStealLapangan and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(200, 200, 200)
 end)
